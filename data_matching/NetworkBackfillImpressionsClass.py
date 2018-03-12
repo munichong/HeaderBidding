@@ -1,9 +1,11 @@
-import json, re
+import json, re, logging
 import pandas as pd
 import numpy as np
 from datetime import datetime
 from urllib.request import urlopen
 
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 HEADER_BIDDING_KEYS = ('mnetbidprice',
                        'mnet_abd',
@@ -30,7 +32,7 @@ class NetworkBackfillImpressions():
        'PublisherProvidedID', 'RequestedAdUnitSizes', 'TargetedCustomCriteria',
        'TimeUsec2', 'VideoPosition', 'VideoFallbackPosition']
 
-        print(df.columns)
+        logger.debug(df.columns)
         '''
         self.df = self.df.drop(columns=['IP', 'CreativeVersion', 'Domain',
                                         'CountryId', 'RegionId', 'MetroId', 'CityId', 'PostalCodeId',
@@ -41,10 +43,10 @@ class NetworkBackfillImpressions():
 
 
     def preprocess(self):
-        print("The shape of original NetworkBackfillImpressions log: ", self.df.shape)
+        logging.info("The shape of original NetworkBackfillImpressions log: (%d, %d)" % self.df.shape)
         self.remove_columns()
 
-        print("The shape of NetworkBackfillImpressions log after removing columns: ", self.df.shape)
+        logging.info("The shape of NetworkBackfillImpressions log after removing columns: (%d, %d)" % self.df.shape)
 
         self.df['CustomTargeting'] = pd.Series(map(self.dictionarinize_customtargeting, self.df['CustomTargeting']))
         self.df['TimeUsec'] = pd.Series(map(self.get_utc, self.df['TimeUsec']))  # UTC
@@ -59,18 +61,18 @@ class NetworkBackfillImpressions():
 
         self.filter_non_article_rows()
 
-        print("The shape of NetworkBackfillImpressions log after filtering some rows: ", self.df.shape)
+        logging.info("The shape of NetworkBackfillImpressions log after filtering some rows: (%d, %d)" % self.df.shape)
 
-        # print(self.df.sort_values(by=['TimeUsec']))
+        # logger.debug(self.df.sort_values(by=['TimeUsec']))
 
 
         unique_ids = self.df['PageID'].unique()
 
         # for naturalid in unique_ids:
         #     if 'blogAndPostId' not in naturalid:
-        #         print(naturalid)
+        #         logger.debug(naturalid)
 
-        print("%d unique pages in this file." % len(unique_ids))
+        logging.info("%d unique pages in this file." % len(unique_ids))
 
         result_df = self.get_URIs(unique_ids)
         self.df = pd.merge(self.df, result_df, how='inner', left_on='PageID', right_on='NaturalIDs')
@@ -80,12 +82,11 @@ class NetworkBackfillImpressions():
 
         self.df = self.df.drop(['PageID', 'PageNo', 'URIs'], axis=1)
 
+        logging.info("The shape of NetworkBackfillImpressions log after filtering by URLs: (%d, %d)" % self.df.shape)
 
-        print("The shape of NetworkBackfillImpressions log after filtering by URLs: ", self.df.shape)
+        # logger.debug(self.df.sort_values(by=['TimeUsec']))
 
-        # print(self.df.sort_values(by=['TimeUsec']))
-
-        print(self.df[['URIs_pageno', 'Time', 'Country', 'Region', 'AdPosition']])
+        # logger.debug(self.df[['URIs_pageno', 'Time', 'AdPosition', 'Country', 'Region']])
 
 
         """
@@ -99,7 +100,7 @@ class NetworkBackfillImpressions():
         """
 
     def get_URIs(self, ids):
-        print('Requesting %d NatrualIDs' % len(ids))
+        logging.info('Requesting %d NatrualIDs' % len(ids))
 
         result_df = pd.DataFrame(columns=['naturalId', 'uri'])
         for batch in self.chunker(ids, size=180):
@@ -107,25 +108,29 @@ class NetworkBackfillImpressions():
                            '%22,%22'.join(batch) + '%22%5d%7D%5d&retrievedfields=id,naturalId,uri' +
                            '&limit=%d' % len(batch)])
 
-            # print(api_url)
+            # logger.debug(api_url)
             response = urlopen(api_url).read().decode('utf-8')
             contentList = json.loads(response)['contentList']
 
             result_df = result_df.append([{key : dict[key]
                                     for key in dict if key == 'naturalId' or key == 'uri'} for dict in contentList],
                                          ignore_index=True)
-            # print(result_df)
+            # logger.debug(result_df)
             try:
-                print('Received %d/%d results' % (len(json.loads(response)['contentList']), len(batch)))
+                logging.info('Received %d/%d results' % (len(json.loads(response)['contentList']), len(batch)))
             except KeyError:
-                print(json.loads(response))
+                logging.warning(json.loads(response))
+            # break
 
         result_df.columns = ['NaturalIDs', 'URIs']
         return result_df
 
     def process_uri(self, x):
         # cat URI and page no
-        uri = ''.join(x) + '/'
+        if x[1]:
+            uri = ''.join(x) + '/'
+        else:
+            uri = x[0]
         uri = re.compile('http[s]?:\/\/www[0-9]*\.').sub('', uri)
         return uri
 
@@ -164,7 +169,6 @@ class NetworkBackfillImpressions():
 
     def dictionarinize_customtargeting(self, raw_customtargeting):
         if type(raw_customtargeting) is not str:
-            # print(raw_customtargeting)
             return None
         return dict(x.split('=') for x in raw_customtargeting.split(';'))
 
@@ -176,6 +180,8 @@ class NetworkBackfillImpressions():
 
 
 if __name__ == '__main__':
-    df = pd.read_csv('/Users/chong.wang/PycharmProjects/HeaderBidding/data/NetworkBackfillImpressions_330022_20180103_00', header=0, delimiter='^')
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    df = pd.read_csv('M:/Research Datasets/Header Bidding Data/NetworkBackfillImpressions/2018.01.03/NetworkBackfillImpressions_330022_20180103_00', header=0, delimiter='^')
     testfile = NetworkBackfillImpressions(df)
     testfile.preprocess()

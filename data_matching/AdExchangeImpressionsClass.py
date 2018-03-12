@@ -1,8 +1,9 @@
-import pandas as pd, re, pycountry
+import pandas as pd, re, pycountry, logging
 from datetime import datetime
 from urllib.parse import urlparse
-from pprint import pprint
 
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 class AdExchangeImpressions():
     def __init__(self, file_content):
@@ -52,24 +53,24 @@ class AdExchangeImpressions():
                 try:
                     country_name = pycountry.countries.get(alpha_2=geo_loc_split[0]).name
                 except KeyError:
-                    print("Country: %s is not found." % geo_loc)
+                    logging.debug("Country: %s is not found." % geo_loc)
                     return '', ''
-                print("State: %s is not found." % geo_loc)
+                logging.debug("State: %s is not found." % geo_loc)
                 return country_name, ''
         else:
             try:
                 country_name = pycountry.countries.get(alpha_2=geo_loc).name
             except KeyError:
-                print("Country: %s is not found." % geo_loc)
+                logging.debug("Country: %s is not found." % geo_loc)
                 return '', ''
             return country_name, ''
 
 
     def preprocess(self):
-        print("The shape of original Ad Exchange log: ", self.df.shape)
+        logging.info("The shape of original Ad Exchange log: (%d, %d)" % self.df.shape)
         self.remove_columns()
 
-        print("The shape of Ad Exchange log after removing columns:", self.df.shape)
+        logging.info("The shape of Ad Exchange log after removing columns: (%d, %d)" % self.df.shape)
 
         self.df['cleaned_url'] = pd.Series(map(self.clean_url, self.df['request_url']))
         self.df['date_time'] = pd.Series(map(self.get_pacific_time, self.df['date_time']))
@@ -81,20 +82,20 @@ class AdExchangeImpressions():
 
 
         country_list, state_list = zip(*map(self.expand_geo, self.df['matched_geo_list']))
-        print(len(country_list), len(self.df))
+        logging.debug("%d, %d" % (len(country_list), len(self.df)))
         assert len(country_list) == len(self.df) and len(state_list) == len(self.df)
 
         self.df['expanded_country'], self.df['expanded_state'] = pd.Series(country_list, index=self.df.index), pd.Series(state_list, index=self.df.index)
 
         self.filter_missing_val_rows('expanded_country')
 
-        print("The shape of Ad Exchange log after filtering out missing value rows:", self.df.shape)
+        logging.info("The shape of Ad Exchange log after filtering out missing value rows: (%d, %d)" % self.df.shape)
 
-        print(self.df[['cleaned_url', 'date_time', 'expanded_country', 'expanded_state', 'channels']])
-        # print(self.df.dtypes)
+        # logging.info(self.df[['cleaned_url', 'date_time', 'channels', 'expanded_country', 'expanded_state']])
 
 
-    def clean_url(self, raw_url, ):
+
+    def clean_url(self, raw_url):
         url = self.remove_url_parameters(raw_url)
         # https://www3.forbes.com/sites/davidparnell/2017
         # regularize 'https'-->'http' and 'www3'-->'www'
@@ -102,7 +103,7 @@ class AdExchangeImpressions():
         # forbes.com/business/homes-in-americas-25-most-expensive-zip-codes-2016/25/
         # http://quiz.forbes.com/the-ultimate-game-of-throne-quiz/2/
         url = re.compile('http[s]?:\/\/www[0-9]*\.').sub('', url)
-        # print(url)
+        # logging.debug(url)
         return url
 
 
@@ -112,7 +113,7 @@ class AdExchangeImpressions():
             but keep page numbers '''
         parse_result = urlparse(raw_url)
         clean_url = '{0}://{1}{2}'.format(parse_result.scheme, parse_result.netloc, parse_result.path)
-        #     print("clean_url:", clean_url)
+        #     logging.debug("clean_url:", clean_url)
         return clean_url
 
     def get_pacific_time(self, date_time):
@@ -121,6 +122,8 @@ class AdExchangeImpressions():
 
 
 if __name__ == '__main__':
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
     df = pd.read_csv('/Users/chong.wang/PycharmProjects/HeaderBidding/data/REPORT_CSV_seller_IC_87371021_2018-01-04-00000-of-00010', delimiter=',')
     testfile = AdExchangeImpressions(df)
     testfile.preprocess()
