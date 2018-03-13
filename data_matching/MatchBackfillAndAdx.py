@@ -43,7 +43,8 @@ for datedir in sorted(os.listdir(os.path.join(root, 'ADX'))):
 
     if datedir not in [
         # '2018.01.05',
-        '2018.01.06']:
+        '2018.01.06'
+    ]:
         continue
 
     for filename in sorted(os.listdir(os.path.join(root, 'ADX', datedir))):
