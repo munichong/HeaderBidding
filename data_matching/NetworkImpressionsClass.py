@@ -31,7 +31,7 @@ class NetworkImpressions():
                                         'EventTimeUsec2', 'DealId', 'DealType', 'AdxAccountId',
                                         'Anonymous'])
 
-    def process(self):
+    def preprocess(self):
         logging.info("The shape of original NetworkImpressions log: (%d, %d)" % self.df.shape)
         self.remove_columns()
 
