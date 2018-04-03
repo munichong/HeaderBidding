@@ -8,6 +8,7 @@ from util.parameters import HEADER_BIDDING_KEYS, FORBES_API_ROOT
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+hb_orderIds_path = '../header bidder.xlsx'
 
 class NetworkImpressions():
     def __init__(self, file_content):
@@ -36,6 +37,7 @@ class NetworkImpressions():
         self.remove_columns()
 
         logging.info("The shape of NetworkImpressions log after removing columns: (%d, %d)" % self.df.shape)
+
 
         self.df['CustomTargeting'] = pd.Series(map(self.dictionarinize_customtargeting, self.df['CustomTargeting']))
         self.df['TimeUsec'] = pd.Series(map(self.get_utc, self.df['TimeUsec']))  # UTC
@@ -120,7 +122,10 @@ class NetworkImpressions():
         return customtargeting['pos']
 
     def filter_headerbidding_rows(self):
-        pass
+        orderId_df = pd.ExcelFile(hb_orderIds_path).parse(0)
+        headerbiddingIds = set(orderId_df[orderId_df.iloc[:, 3].map(lambda row: row == 'bidder')].iloc[:, 2].values)
+        self.df = self.df[self.df['OrderId'].map(lambda row: row in headerbiddingIds)]
+
 
     def filter_customtargeting_rows(self):
         self.df = self.df[self.df['CustomTargeting'].map(lambda row: row is not None and 'id' in row and

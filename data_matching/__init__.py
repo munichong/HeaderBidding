@@ -1,14 +1,9 @@
-from pymongo import MongoClient
 import pandas as pd
 
-client = MongoClient()
-col = client['test']['test']
+orderId_df = pd.ExcelFile('../header bidder.xlsx').parse(0)
+print(orderId_df)
+print(orderId_df.shape)
 
-d = {'name': ['Braund', 'Cummings', 'Heikkinen', 'Allen'],
-     'age': [22,38,26,35],
-     'fare': [7.25, 71.83, 0 , 8.05],
-     'survived?': [False, True, True, False]}
-
-df = pd.DataFrame(d)
-
-col.insert_many(df.to_dict('r'))
+print(orderId_df[orderId_df.iloc[:,3].map(lambda row: row == 'bidder')].iloc[:,2].shape)
+headerbiddingIds = set(orderId_df[orderId_df.iloc[:,3].map(lambda row: row == 'bidder')].iloc[:,2].values)
+print(len(headerbiddingIds))
