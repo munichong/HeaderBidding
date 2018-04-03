@@ -7,14 +7,13 @@ from NetworkImpressionsClass import NetworkImpressions
 
 root = 'M:/Research Datasets/Header Bidding Data/'
 client = MongoClient()
-backfill_col = client['Header_Bidding']['NetworkImpressions']
-backfill_col.create_index([('URIs_pageno', ASCENDING),
-                           ('Time', ASCENDING),
-                           ('AdPosition', ASCENDING),
-                           ('Country', ASCENDING),
-                           ('Region', ASCENDING)])
+headerbidding_col = client['Header_Bidding']['NetworkImpressions']
+# headerbidding_col.create_index([('URIs_pageno', ASCENDING),
+#                            ('Time', ASCENDING),
+#                            ('AdPosition', ASCENDING),
+#                            ('Country', ASCENDING),
+#                            ('Region', ASCENDING)])
 
-start_process = False
 
 for datedir in sorted(os.listdir(os.path.join(root, 'NetworkImpressions'))):
     if datedir[0] == '.':
@@ -31,11 +30,11 @@ for datedir in sorted(os.listdir(os.path.join(root, 'NetworkImpressions'))):
 
         df = pd.read_csv(os.path.join(root, 'NetworkImpressions', datedir, filename), header=0, delimiter='^')
 
-        backfill = NetworkImpressions(df)
-        backfill.preprocess()
-        backfill_col.insert_many(backfill.df.to_dict('r'))
+        headerbidding = NetworkImpressions(df)
+        headerbidding.preprocess()
+        headerbidding_col.insert_many(headerbidding.df.to_dict('r'))
 
-        print(len(backfill.df), "STORED!")
+        print(len(headerbidding.df), "STORED!")
 
 
     sys.exit(0)
