@@ -3,64 +3,47 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from urllib.request import urlopen
-from util.parameters import FORBES_API_ROOT, HEADER_BIDDING_KEYS
+from util.parameters import HEADER_BIDDING_KEYS, FORBES_API_ROOT
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# HEADER_BIDDING_KEYS = ('mnetbidprice',
-#                        'mnet_abd',
-#                        'mnet_fbcpm',
-#                        'amznbid',
-#                        'fb_bid_price_cents')
-#
-# FORBES_API_ROOT = 'https://forbesapis.forbes.com/forbesapi/content/all.json/?code=a6016ad7796e2165bba73787d68f3162b29f9bd7'
+hb_orderIds_path = '../header bidder.xlsx'
 
-class NetworkBackfillImpressions():
+class NetworkImpressions():
     def __init__(self, file_content):
         self.df = file_content
 
-
     def remove_columns(self):
         '''
-       ['Time', 'UserId', 'IP', 'AdvertiserId', 'OrderId', 'LineItemId',
-       'CreativeId', 'CreativeVersion', 'CreativeSize', 'AdUnitId',
-       'CustomTargeting', 'Domain', 'CountryId', 'Country', 'RegionId',
-       'Region', 'MetroId', 'Metro', 'CityId', 'City', 'PostalCodeId',
-       'PostalCode', 'BrowserId', 'Browser', 'OSId', 'OS', 'BandWidth',
-       'BandwidthId', 'TimeUsec', 'Product', 'ActiveViewEligibleImpression',
-       'DeviceCategory', 'GfpContentId', 'KeyPart', 'PodPosition',
-       'PublisherProvidedID', 'RequestedAdUnitSizes', 'TargetedCustomCriteria',
-       'TimeUsec2', 'VideoPosition', 'VideoFallbackPosition'，
-
-       'RefererURL'， 'AudienceSegmentIds'， 'MobileDevice'， 'OSVersion'， 'MobileCapability'，
-       'MobileCarrier'， 'IsCompanion'， 'BandwidthGroupId'， 'EventTimeUsec2'， 'IsInterstitial'，
-       'EventKeyPart'， 'EstimatedBackfillRevenue'， 'YieldGroupNames'， 'YieldGroupCompanyId'，
-       'MobileAppId'， 'RequestLanguage'， 'DealId', 'DealType', 'AdxAccountId', 'SellerReservePrice',
-       'Buyer', 'Advertiser', 'Anonymous', 'ImpressionId']
+       [Time, UserId, AdvertiserId, OrderId, LineItemId, CreativeId, CreativeVersion, CreativeSize,
+       AdUnitId, CustomTargeting, Domain, CountryId, Country, RegionId, Region, MetroId, Metro, CityId, City,
+       PostalCodeId, PostalCode, BrowserId, Browser, OSId,OS, OSVersion, BandwidthId, BandWidth,
+       TimeUsec, AudienceSegmentIds, Product, RequestedAdUnitSizes, BandwidthGroupId, MobileDevice,
+       MobileCapability, MobileCarrier, IsCompanion, TargetedCustomCriteria, DeviceCategory, IsInterstitial,
+       EventTimeUsec2, YieldGroupNames, YieldGroupCompanyId, MobileAppId, RequestLanguage, DealId, DealType,
+       AdxAccountId, SellerReservePrice, Buyer, Advertiser, Anonymous, ImpressionId]
 
         logger.debug(df.columns)
         '''
-        self.df = self.df.drop(columns=['IP', 'CreativeVersion', 'Domain',
+        self.df = self.df.drop(columns=['AdvertiserId', 'CreativeVersion', 'CreativeId',
                                         'CountryId', 'RegionId', 'MetroId', 'CityId', 'PostalCodeId',
-                                        'BrowserId', 'OSId', 'BandwidthId', 'GfpContentId', 'KeyPart',
-                                        'ActiveViewEligibleImpression', 'TargetedCustomCriteria',
-                                        'PodPosition', 'PublisherProvidedID', 'VideoPosition',
-                                        'VideoFallbackPosition', 'YieldGroupNames', 'YieldGroupCompanyId',
-                                        'DealId', 'DealType', 'Anonymous'])
-
+                                        'BrowserId', 'OSId', 'BandwidthId', 'BandwidthGroupId',
+                                        'EventTimeUsec2', 'DealId', 'DealType', 'AdxAccountId',
+                                        'Anonymous'])
 
     def preprocess(self):
-        logging.info("The shape of original NetworkBackfillImpressions log: (%d, %d)" % self.df.shape)
+        logging.info("The shape of original NetworkImpressions log: (%d, %d)" % self.df.shape)
         self.remove_columns()
 
-        logging.info("The shape of NetworkBackfillImpressions log after removing columns: (%d, %d)" % self.df.shape)
+        logging.info("The shape of NetworkImpressions log after removing columns: (%d, %d)" % self.df.shape)
+
 
         self.df['CustomTargeting'] = pd.Series(map(self.dictionarinize_customtargeting, self.df['CustomTargeting']))
         self.df['TimeUsec'] = pd.Series(map(self.get_utc, self.df['TimeUsec']))  # UTC
         self.df['Time'] = pd.Series(map(self.get_est, self.df['Time']))  # EST
 
-        self.filter_product_rows()
+        self.filter_headerbidding_rows()
         self.filter_customtargeting_rows()
 
         self.df['PageID'] = pd.Series(map(self.get_pageid_from_CT, self.df['CustomTargeting']), index=self.df.index)
@@ -69,16 +52,9 @@ class NetworkBackfillImpressions():
 
         self.filter_non_article_rows()
 
-        logging.info("The shape of NetworkBackfillImpressions log after filtering some rows: (%d, %d)" % self.df.shape)
-
-        # logger.debug(self.df.sort_values(by=['TimeUsec']))
-
+        logging.info("The shape of NetworkImpressions log after filtering some rows: (%d, %d)" % self.df.shape)
 
         unique_ids = self.df['PageID'].unique()
-
-        # for naturalid in unique_ids:
-        #     if 'blogAndPostId' not in naturalid:
-        #         logger.debug(naturalid)
 
         logging.info("%d unique pages in this file." % len(unique_ids))
 
@@ -89,7 +65,7 @@ class NetworkBackfillImpressions():
 
         self.df = self.df.drop(['PageNo', 'URIs'], axis=1)
 
-        logging.info("The shape of NetworkBackfillImpressions log after filtering by URLs: (%d, %d)" % self.df.shape)
+        logging.info("The shape of NetworkImpressions log after filtering by URLs: (%d, %d)" % self.df.shape)
 
 
 
@@ -102,14 +78,12 @@ class NetworkBackfillImpressions():
                            '%22,%22'.join(batch) + '%22%5d%7D%5d&retrievedfields=id,naturalId,uri' +
                            '&limit=%d' % len(batch)])
 
-            # logger.debug(api_url)
             response = urlopen(api_url).read().decode('utf-8')
             contentList = json.loads(response)['contentList']
 
             result_df = result_df.append([{key : dict[key]
                                     for key in dict if key == 'naturalId' or key == 'uri'} for dict in contentList],
                                          ignore_index=True)
-            # logger.debug(result_df)
             try:
                 logging.info('Received %d/%d results' % (len(json.loads(response)['contentList']), len(batch)))
             except KeyError:
@@ -118,6 +92,9 @@ class NetworkBackfillImpressions():
 
         result_df.columns = ['NaturalIDs', 'URIs']
         return result_df
+
+    def chunker(self, seq, size):
+        return (seq[pos:pos + size] for pos in range(0, len(seq), size))
 
     def process_uri(self, x):
         # cat URI and page no
@@ -128,8 +105,8 @@ class NetworkBackfillImpressions():
         uri = re.compile('http[s]?:\/\/www[0-9]*\.').sub('', uri)
         return uri
 
-    def chunker(self, seq, size):
-        return (seq[pos:pos + size] for pos in range(0, len(seq), size))
+    def filter_non_article_rows(self):
+        self.df = self.df[self.df['PageID'].map(lambda row: 'blogAndPostId' in row)]
 
     def get_pageno_from_CT(self, customtargeting):
         if 'page' not in customtargeting:
@@ -144,22 +121,15 @@ class NetworkBackfillImpressions():
     def get_pos_from_CT(self, customtargeting):
         return customtargeting['pos']
 
-    def get_header_bids(self, customtargeting):
-        return {key: customtargeting[key] for key in HEADER_BIDDING_KEYS if key in customtargeting}
+    def filter_headerbidding_rows(self):
+        orderId_df = pd.ExcelFile(hb_orderIds_path).parse(0)
+        headerbiddingIds = set(orderId_df[orderId_df.iloc[:, 3].map(lambda row: row == 'bidder')].iloc[:, 2].values)
+        self.df = self.df[self.df['OrderId'].map(lambda row: row in headerbiddingIds)]
+
 
     def filter_customtargeting_rows(self):
         self.df = self.df[self.df['CustomTargeting'].map(lambda row: row is not None and 'id' in row and
                                                          'pos' in row)]
-
-    def filter_non_article_rows(self):
-        self.df = self.df[self.df['PageID'].map(lambda row: 'blogAndPostId' in row)]
-
-    def filter_product_rows(self):
-        '''
-        'Product': ['Ad Exchange' 'Exchange Bidding' 'First Look']
-        Skip all rows whose 'Product' is 'custom_targeting'
-        '''
-        self.df = self.df[self.df['Product'] != 'Exchange Bidding']
 
     def dictionarinize_customtargeting(self, raw_customtargeting):
         if type(raw_customtargeting) is not str:
@@ -173,9 +143,10 @@ class NetworkBackfillImpressions():
         return datetime.strptime(time, '%Y-%m-%d-%H:%M:%S')
 
 
+
 if __name__ == '__main__':
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-    df = pd.read_csv('M:/Research Datasets/Header Bidding Data/NetworkBackfillImpressions/2018.01.03/NetworkBackfillImpressions_330022_20180103_00', header=0, delimiter='^')
-    testfile = NetworkBackfillImpressions(df)
+    df = pd.read_csv('M:/Research Datasets/Header Bidding Data/NetworkBackfillImpressions/2018.01.03/NetworkImpressions_330022_20180103_00', header=0, delimiter=',')
+    testfile = NetworkImpressions(df)
     testfile.preprocess()

@@ -31,13 +31,7 @@ class NetworkBackfillImpressions():
        'BandwidthId', 'TimeUsec', 'Product', 'ActiveViewEligibleImpression',
        'DeviceCategory', 'GfpContentId', 'KeyPart', 'PodPosition',
        'PublisherProvidedID', 'RequestedAdUnitSizes', 'TargetedCustomCriteria',
-       'TimeUsec2', 'VideoPosition', 'VideoFallbackPosition'，
-
-       'RefererURL'， 'AudienceSegmentIds'， 'MobileDevice'， 'OSVersion'， 'MobileCapability'，
-       'MobileCarrier'， 'IsCompanion'， 'BandwidthGroupId'， 'EventTimeUsec2'， 'IsInterstitial'，
-       'EventKeyPart'， 'EstimatedBackfillRevenue'， 'YieldGroupNames'， 'YieldGroupCompanyId'，
-       'MobileAppId'， 'RequestLanguage'， 'DealId', 'DealType', 'AdxAccountId', 'SellerReservePrice',
-       'Buyer', 'Advertiser', 'Anonymous', 'ImpressionId']
+       'TimeUsec2', 'VideoPosition', 'VideoFallbackPosition']
 
         logger.debug(df.columns)
         '''
@@ -46,8 +40,7 @@ class NetworkBackfillImpressions():
                                         'BrowserId', 'OSId', 'BandwidthId', 'GfpContentId', 'KeyPart',
                                         'ActiveViewEligibleImpression', 'TargetedCustomCriteria',
                                         'PodPosition', 'PublisherProvidedID', 'VideoPosition',
-                                        'VideoFallbackPosition', 'YieldGroupNames', 'YieldGroupCompanyId',
-                                        'DealId', 'DealType', 'Anonymous'])
+                                        'VideoFallbackPosition'])
 
 
     def preprocess(self):
@@ -90,6 +83,10 @@ class NetworkBackfillImpressions():
         self.df = self.df.drop(['PageNo', 'URIs'], axis=1)
 
         logging.info("The shape of NetworkBackfillImpressions log after filtering by URLs: (%d, %d)" % self.df.shape)
+
+        # logger.debug(self.df.sort_values(by=['TimeUsec']))
+
+        # logger.debug(self.df[['URIs_pageno', 'Time', 'AdPosition', 'Country', 'Region']])
 
 
 
