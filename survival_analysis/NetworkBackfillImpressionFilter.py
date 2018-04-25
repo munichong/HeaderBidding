@@ -14,3 +14,7 @@ class NetworkBackfillImpressionFilter:
         self.data = []  # stores tuples
         for doc in self.col.find(projection=FEATURE_FIELDS):
 
+            '''
+            filtered = df.groupby('positions')['r vals'].filter(lambda x: len(x) >= 3)
+            df[df['r vals'].isin(filtered)]
+            '''
