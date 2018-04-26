@@ -25,14 +25,14 @@ def import_dataset(dataname, ImpressionClass):
         if datedir[0] == '.':
             continue
 
-        if datedir != '2018.04.13':
+        if datedir != '2018.04.15':
             continue
 
         for filename in sorted(os.listdir(os.path.join(root, dataname, datedir))):
             if filename[0] == '.':
                 continue
 
-            # if filename == 'NetworkBackfillImpressions_330022_20180103_10':
+            # if filename == 'NetworkBackfillImpressions_330022_20180415_14':
             #     start_process = True
             #
             # if not start_process:
@@ -52,5 +52,5 @@ def import_dataset(dataname, ImpressionClass):
         sys.exit(0)
 
 
-import_dataset('NetworkBackfillImpressions', NetworkBackfillImpressions)
+# import_dataset('NetworkBackfillImpressions', NetworkBackfillImpressions)
 import_dataset('NetworkImpressions', NetworkImpressions)

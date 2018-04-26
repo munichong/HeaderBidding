@@ -1,4 +1,4 @@
-import json, re, logging
+import json, re, logging, time
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -56,12 +56,21 @@ class NetworkBackfillImpressions():
 
         logging.info("The shape of NetworkBackfillImpressions log after removing columns: (%d, %d)" % self.df.shape)
 
-        self.df['CustomTargeting'] = pd.Series(map(self.dictionarinize_customtargeting, self.df['CustomTargeting']))
-        self.df['TimeUsec'] = pd.Series(map(self.get_utc, self.df['TimeUsec']))  # UTC
-        self.df['Time'] = pd.Series(map(self.get_est, self.df['Time']))  # EST
-
         self.filter_product_rows()
+        # print(self.df)
+
+        self.df['CustomTargeting'] = pd.Series(map(self.dictionarinize_customtargeting, self.df['CustomTargeting']),
+                                               index=self.df.index)
+
+        # print(self.df)
         self.filter_customtargeting_rows()
+
+
+        self.df['TimeUsec'] = pd.Series(map(self.get_utc, self.df['TimeUsec']), index=self.df.index)  # UTC
+        self.df['Time'] = pd.Series(map(self.get_est, self.df['Time']), index=self.df.index)  # EST
+
+
+
 
         self.df['PageID'] = pd.Series(map(self.get_pageid_from_CT, self.df['CustomTargeting']), index=self.df.index)
         self.df['PageNo'] = pd.Series(map(self.get_pageno_from_CT, self.df['CustomTargeting']), index=self.df.index)
@@ -114,7 +123,8 @@ class NetworkBackfillImpressions():
                 logging.info('Received %d/%d results' % (len(json.loads(response)['contentList']), len(batch)))
             except KeyError:
                 logging.warning(json.loads(response))
-            # break
+
+            time.sleep(0.5)
 
         result_df.columns = ['NaturalIDs', 'URIs']
         return result_df
