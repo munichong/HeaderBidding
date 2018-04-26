@@ -174,7 +174,17 @@ class NetworkBackfillImpressions():
     def dictionarinize_customtargeting(self, raw_customtargeting):
         if type(raw_customtargeting) is not str:
             return None
-        return dict(x.split('=') for x in raw_customtargeting.split(';'))
+        targeting_dict = {}
+        for x in raw_customtargeting.split(';'):
+            key, value = x.split('=')
+            if key in targeting_dict:
+                if type(targeting_dict[key]) is list:
+                    targeting_dict[key].append(value)
+                else:
+                    targeting_dict[key] = [targeting_dict[key], value]
+            else:
+                targeting_dict[key] = value
+        return targeting_dict
 
     def get_utc(self, timeusec):
         return datetime.utcfromtimestamp(timeusec)  # <class 'datetime.datetime'>
