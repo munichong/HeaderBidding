@@ -32,7 +32,7 @@ def import_dataset(dataname, ImpressionClass):
             if filename[0] == '.':
                 continue
 
-            # if filename == 'NetworkBackfillImpressions_330022_20180415_14':
+            # if filename == 'NetworkBackfillImpressions_330022_20180415_19':
             #     start_process = True
             #
             # if not start_process:
@@ -52,5 +52,5 @@ def import_dataset(dataname, ImpressionClass):
         sys.exit(0)
 
 
-# import_dataset('NetworkBackfillImpressions', NetworkBackfillImpressions)
+import_dataset('NetworkBackfillImpressions', NetworkBackfillImpressions)
 import_dataset('NetworkImpressions', NetworkImpressions)
