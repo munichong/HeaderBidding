@@ -5,16 +5,18 @@ COLNAME = 'NetworkBackfillImpressions'
 FEATURE_FIELDS = []
 
 
-class NetworkBackfillImpressionFilter:
+class NetworkBackfillImpressionEntries:
     def __init__(self):
         client = MongoClient()
         self.col = client[DBNAME][COLNAME]
 
-    def filter(self):
+    def retrieve_entries(self):
         self.data = []  # stores tuples
         for doc in self.col.find(projection=FEATURE_FIELDS):
+            pass
 
-            '''
-            filtered = df.groupby('positions')['r vals'].filter(lambda x: len(x) >= 3)
-            df[df['r vals'].isin(filtered)]
-            '''
+
+    def to_cox_problem(self):  # vectorize
+        pass
+
+
