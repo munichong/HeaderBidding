@@ -1,4 +1,5 @@
 from pymongo import MongoClient
+from survival_analysis.NetworkBackfillImpressionEntries import NetworkBackfillImpressionEntries
 
 DBNAME = 'Header_Bidding'
 FEATURE_FIELDS = []
@@ -10,7 +11,7 @@ def filter_rows(colname=None):
     col = client[DBNAME][colname]
     data = []  # stores tuples
     for doc in col.find(projection=FEATURE_FIELDS):
-        
+        NetworkBackfillImpressionEntries(doc)
 
 
 

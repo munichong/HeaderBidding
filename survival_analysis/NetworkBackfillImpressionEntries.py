@@ -1,4 +1,5 @@
 from pymongo import MongoClient
+from survival_analysis.NetworkBackfillImpressionEntry import NetworkBackfillImpressionEntry
 
 DBNAME = 'Header_Bidding'
 COLNAME = 'NetworkBackfillImpressions'
@@ -17,13 +18,17 @@ class NetworkBackfillImpressionEntries:
         self.col = client[DBNAME][COLNAME]
 
     def retrieve_entries(self):
-        self.data = []  # stores tuples
+        self.data = []
         for doc in self.col.find(projection=FEATURE_FIELDS):
+            entry = NetworkBackfillImpressionEntry(doc)
+            entry.build_entry()
+            self.data.append(entry)
+
+
+a = NetworkBackfillImpressionEntries()
+a.retrieve_entries()
 
 
 
-
-    def to_cox_problem(self):  # vectorize
-        pass
 
 
