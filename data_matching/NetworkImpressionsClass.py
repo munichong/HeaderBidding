@@ -1,18 +1,21 @@
-import json, re, logging
+import json, re, logging, time
 import pandas as pd
 import numpy as np
 from datetime import datetime
 from urllib.request import urlopen
+
 from util.parameters import HEADER_BIDDING_KEYS, FORBES_API_ROOT
+from data_matching.DFPDataClass import DFPData
+
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 hb_orderIds_path = '../header bidder.xlsx'
 
-class NetworkImpressions():
+class NetworkImpressions(DFPData):
     def __init__(self, file_content):
-        self.df = file_content
+        super().__init__(file_content)
 
     def remove_columns(self):
         '''
@@ -38,13 +41,15 @@ class NetworkImpressions():
 
         logging.info("The shape of NetworkImpressions log after removing columns: (%d, %d)" % self.df.shape)
 
-
-        self.df['CustomTargeting'] = pd.Series(map(self.dictionarinize_customtargeting, self.df['CustomTargeting']))
-        self.df['TimeUsec'] = pd.Series(map(self.get_utc, self.df['TimeUsec']))  # UTC
-        self.df['Time'] = pd.Series(map(self.get_est, self.df['Time']))  # EST
-
         self.filter_headerbidding_rows()
+
+        self.df['CustomTargeting'] = pd.Series(map(self.dictionarinize_customtargeting, self.df['CustomTargeting']),
+                                               index=self.df.index)
         self.filter_customtargeting_rows()
+
+        self.df['TimeUsec'] = pd.Series(map(self.get_utc, self.df['TimeUsec']), index=self.df.index)  # UTC
+        self.df['Time'] = pd.Series(map(self.get_est, self.df['Time']), index=self.df.index)  # EST
+
 
         self.df['PageID'] = pd.Series(map(self.get_pageid_from_CT, self.df['CustomTargeting']), index=self.df.index)
         self.df['PageNo'] = pd.Series(map(self.get_pageno_from_CT, self.df['CustomTargeting']), index=self.df.index)
@@ -68,89 +73,10 @@ class NetworkImpressions():
         logging.info("The shape of NetworkImpressions log after filtering by URLs: (%d, %d)" % self.df.shape)
 
 
-
-    def get_URIs(self, ids):
-        logging.info('Requesting %d NatrualIDs' % len(ids))
-
-        result_df = pd.DataFrame(columns=['naturalId', 'uri'])
-        for batch in self.chunker(ids, size=180):
-            api_url = ''.join([FORBES_API_ROOT + '&queryfilters=%5b%7B%22naturalId%22:%5b%22' +
-                           '%22,%22'.join(batch) + '%22%5d%7D%5d&retrievedfields=id,naturalId,uri' +
-                           '&limit=%d' % len(batch)])
-
-            response = urlopen(api_url).read().decode('utf-8')
-            contentList = json.loads(response)['contentList']
-
-            result_df = result_df.append([{key : dict[key]
-                                    for key in dict if key == 'naturalId' or key == 'uri'} for dict in contentList],
-                                         ignore_index=True)
-            try:
-                logging.info('Received %d/%d results' % (len(json.loads(response)['contentList']), len(batch)))
-            except KeyError:
-                logging.warning(json.loads(response))
-            # break
-
-        result_df.columns = ['NaturalIDs', 'URIs']
-        return result_df
-
-    def chunker(self, seq, size):
-        return (seq[pos:pos + size] for pos in range(0, len(seq), size))
-
-    def process_uri(self, x):
-        # cat URI and page no
-        if x[1]:
-            uri = ''.join(x) + '/'
-        else:
-            uri = x[0]
-        uri = re.compile('http[s]?:\/\/www[0-9]*\.').sub('', uri)
-        return uri
-
-    def filter_non_article_rows(self):
-        self.df = self.df[self.df['PageID'].map(lambda row: 'blogAndPostId' in row)]
-
-    def get_pageno_from_CT(self, customtargeting):
-        if 'page' not in customtargeting:
-            return ''
-        return customtargeting['page']
-
-
-    def get_pageid_from_CT(self, customtargeting):
-        customtargeting['id'] = customtargeting['id'].replace('blogandpostid', 'blogAndPostId')
-        return customtargeting['id']
-
-    def get_pos_from_CT(self, customtargeting):
-        return customtargeting['pos']
-
     def filter_headerbidding_rows(self):
         orderId_df = pd.ExcelFile(hb_orderIds_path).parse(0)
         headerbiddingIds = set(orderId_df[orderId_df.iloc[:, 3].map(lambda row: row == 'bidder')].iloc[:, 2].values)
         self.df = self.df[self.df['OrderId'].map(lambda row: row in headerbiddingIds)]
-
-
-    def filter_customtargeting_rows(self):
-        self.df = self.df[self.df['CustomTargeting'].map(lambda row: row is not None and 'id' in row and
-                                                         'pos' in row)]
-
-    def dictionarinize_customtargeting(self, raw_customtargeting):
-        if type(raw_customtargeting) is not str:
-            return None
-        targeting_dict = {}
-        for x in raw_customtargeting.split(';'):
-            key, value = x.split('=')
-            if key in targeting_dict:
-                if type(targeting_dict[key]) is list:
-                    targeting_dict[key].append(value)
-                else:
-                    targeting_dict[key] = [targeting_dict[key], value]
-            else:
-                targeting_dict[key] = value
-        return targeting_dict
-
-    def get_utc(self, timeusec):
-        return datetime.utcfromtimestamp(timeusec)  # <class 'datetime.datetime'>
-
-    def get_est(self, time):
-        return datetime.strptime(time, '%Y-%m-%d-%H:%M:%S')
 
 
 

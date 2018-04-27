@@ -1,9 +1,12 @@
-import json, re, logging
+import json, re, logging, time
 import pandas as pd
 import numpy as np
 from datetime import datetime
 from urllib.request import urlopen
+
 from util.parameters import FORBES_API_ROOT, HEADER_BIDDING_KEYS
+from data_matching.DFPDataClass import DFPData
+
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -16,9 +19,9 @@ logger.setLevel(logging.INFO)
 #
 # FORBES_API_ROOT = 'https://forbesapis.forbes.com/forbesapi/content/all.json/?code=a6016ad7796e2165bba73787d68f3162b29f9bd7'
 
-class NetworkBackfillImpressions():
+class NetworkBackfillImpressions(DFPData):
     def __init__(self, file_content):
-        self.df = file_content
+        super().__init__(file_content)
 
 
     def remove_columns(self):
@@ -56,12 +59,19 @@ class NetworkBackfillImpressions():
 
         logging.info("The shape of NetworkBackfillImpressions log after removing columns: (%d, %d)" % self.df.shape)
 
-        self.df['CustomTargeting'] = pd.Series(map(self.dictionarinize_customtargeting, self.df['CustomTargeting']))
-        self.df['TimeUsec'] = pd.Series(map(self.get_utc, self.df['TimeUsec']))  # UTC
-        self.df['Time'] = pd.Series(map(self.get_est, self.df['Time']))  # EST
-
         self.filter_product_rows()
+        # print(self.df)
+
+        self.df['CustomTargeting'] = pd.Series(map(self.dictionarinize_customtargeting, self.df['CustomTargeting']),
+                                               index=self.df.index)
+
+        # print(self.df)
         self.filter_customtargeting_rows()
+
+
+        self.df['TimeUsec'] = pd.Series(map(self.get_utc, self.df['TimeUsec']), index=self.df.index)  # UTC
+        self.df['Time'] = pd.Series(map(self.get_est, self.df['Time']), index=self.df.index)  # EST
+
 
         self.df['PageID'] = pd.Series(map(self.get_pageid_from_CT, self.df['CustomTargeting']), index=self.df.index)
         self.df['PageNo'] = pd.Series(map(self.get_pageno_from_CT, self.df['CustomTargeting']), index=self.df.index)
@@ -92,67 +102,8 @@ class NetworkBackfillImpressions():
         logging.info("The shape of NetworkBackfillImpressions log after filtering by URLs: (%d, %d)" % self.df.shape)
 
 
-
-    def get_URIs(self, ids):
-        logging.info('Requesting %d NatrualIDs' % len(ids))
-
-        result_df = pd.DataFrame(columns=['naturalId', 'uri'])
-        for batch in self.chunker(ids, size=180):
-            api_url = ''.join([FORBES_API_ROOT + '&queryfilters=%5b%7B%22naturalId%22:%5b%22' +
-                           '%22,%22'.join(batch) + '%22%5d%7D%5d&retrievedfields=id,naturalId,uri' +
-                           '&limit=%d' % len(batch)])
-
-            # logger.debug(api_url)
-            response = urlopen(api_url).read().decode('utf-8')
-            contentList = json.loads(response)['contentList']
-
-            result_df = result_df.append([{key : dict[key]
-                                    for key in dict if key == 'naturalId' or key == 'uri'} for dict in contentList],
-                                         ignore_index=True)
-            # logger.debug(result_df)
-            try:
-                logging.info('Received %d/%d results' % (len(json.loads(response)['contentList']), len(batch)))
-            except KeyError:
-                logging.warning(json.loads(response))
-            # break
-
-        result_df.columns = ['NaturalIDs', 'URIs']
-        return result_df
-
-    def process_uri(self, x):
-        # cat URI and page no
-        if x[1]:
-            uri = ''.join(x) + '/'
-        else:
-            uri = x[0]
-        uri = re.compile('http[s]?:\/\/www[0-9]*\.').sub('', uri)
-        return uri
-
-    def chunker(self, seq, size):
-        return (seq[pos:pos + size] for pos in range(0, len(seq), size))
-
-    def get_pageno_from_CT(self, customtargeting):
-        if 'page' not in customtargeting:
-            return ''
-        return customtargeting['page']
-
-
-    def get_pageid_from_CT(self, customtargeting):
-        customtargeting['id'] = customtargeting['id'].replace('blogandpostid', 'blogAndPostId')
-        return customtargeting['id']
-
-    def get_pos_from_CT(self, customtargeting):
-        return customtargeting['pos']
-
     def get_header_bids(self, customtargeting):
         return {key: customtargeting[key] for key in HEADER_BIDDING_KEYS if key in customtargeting}
-
-    def filter_customtargeting_rows(self):
-        self.df = self.df[self.df['CustomTargeting'].map(lambda row: row is not None and 'id' in row and
-                                                         'pos' in row)]
-
-    def filter_non_article_rows(self):
-        self.df = self.df[self.df['PageID'].map(lambda row: 'blogAndPostId' in row)]
 
     def filter_product_rows(self):
         '''
@@ -160,28 +111,6 @@ class NetworkBackfillImpressions():
         Skip all rows whose 'Product' is 'custom_targeting'
         '''
         self.df = self.df[self.df['Product'] != 'Exchange Bidding']
-
-    def dictionarinize_customtargeting(self, raw_customtargeting):
-        if type(raw_customtargeting) is not str:
-            return None
-        targeting_dict = {}
-        for x in raw_customtargeting.split(';'):
-            key, value = x.split('=')
-            if key in targeting_dict:
-                if type(targeting_dict[key]) is list:
-                    targeting_dict[key].append(value)
-                else:
-                    targeting_dict[key] = [targeting_dict[key], value]
-            else:
-                targeting_dict[key] = value
-        return targeting_dict
-
-    def get_utc(self, timeusec):
-        return datetime.utcfromtimestamp(timeusec)  # <class 'datetime.datetime'>
-
-    def get_est(self, time):
-        return datetime.strptime(time, '%Y-%m-%d-%H:%M:%S')
-
 
 if __name__ == '__main__':
     logger = logging.getLogger()
