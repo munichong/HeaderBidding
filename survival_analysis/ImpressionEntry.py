@@ -1,5 +1,4 @@
 import csv, pandas as pd
-from datetime import datetime
 
 HEADER_BIDDING_KEYS = ('mnetbidprice',
                        'mnet_abd',
@@ -9,7 +8,7 @@ HEADER_BIDDING_KEYS = ('mnetbidprice',
 EMPTY = '<EMPTY>'
 AMZBID_MAPPING_PATH = '..\PricePoints-3038-display.csv'
 
-class NetworkBackfillImpressionEntry:
+class ImpressionEntry:
     def __init__(self, doc):
         self.doc = doc
         self.load_amznbid_price_mapping()
@@ -24,18 +23,18 @@ class NetworkBackfillImpressionEntry:
 
 
     def build_entry(self):
-        self.target = []
+        # self.target = []
         self.entry = {}
 
-        ''' Duration '''
-        if pd.isnull(self.doc['SellerReservePrice']) or not type(self.doc['SellerReservePrice']) is float:
-            self.entry = None
-            self.target = None
-            return
-        self.target.append(self.doc['SellerReservePrice'])
-
-        ''' Event '''
-        self.target.append(1)
+        # ''' Duration '''
+        # if pd.isnull(self.doc['SellerReservePrice']) or not type(self.doc['SellerReservePrice']) is float:
+        #     self.entry = None
+        #     self.target = None
+        #     return
+        # self.target.append(self.doc['SellerReservePrice'])
+        #
+        # ''' Event '''
+        # self.target.append(1)
 
 
         self.entry['DeviceCategory'] = self.filter_empty_str(self.doc['DeviceCategory'])
@@ -97,5 +96,3 @@ class NetworkBackfillImpressionEntry:
             return EMPTY
         return string.lower()
 
-    def to_cox_vector(self):  # vectorize
-        pass
