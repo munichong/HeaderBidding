@@ -1,5 +1,5 @@
 import pandas as pd
-
+from datetime import datetime
 
 class NetworkBackfillImpressionEntry():
     def __init__(self, doc):
@@ -23,6 +23,18 @@ class NetworkBackfillImpressionEntry():
         entry.append(self.filter_empty_str(self.doc['BandWidth']))
         entry.append(self.filter_empty_str(self.doc['OS']))
         entry.append(self.filter_empty_str(self.doc['MobileCarrier']))
+
+        entry.append(self.doc['Time'].hour)
+
+        entry.append(self.filter_empty_str(self.doc['RequestLanguage']))
+        entry.append(self.filter_empty_str(self.doc['Country']))
+        entry.append(self.filter_empty_str(self.doc['Region']))
+        # entry.append(self.filter_empty_str(self.doc['Metro']))
+        # entry.append(self.filter_empty_str(self.doc['City']))
+
+
+
+
 
 
 

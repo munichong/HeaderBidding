@@ -5,7 +5,7 @@ COLNAME = 'NetworkBackfillImpressions'
 FEATURE_FIELDS = ['URIs_pageno', 'NaturalIDs', 'RefererURL', 'UserId',
                   'DeviceCategory', 'MobileDevice', 'Browser', 'BandWidth', 'OS', 'MobileCarrier',
                   'SellerReservePrice', 'EstimatedBackfillRevenue',
-                  'TimeUsec',
+                  'Time',
                   'RequestLanguage', 'Country', 'Region', 'Metro', 'City', 'AudienceSegmentIds',
                   'RequestedAdUnitSizes', 'CreativeSize', 'AdPosition'
                   'CustomTargeting', ]
