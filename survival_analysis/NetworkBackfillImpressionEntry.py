@@ -1,4 +1,4 @@
-import pandas as pd
+import csv, pandas as pd
 from datetime import datetime
 
 HEADER_BIDDING_KEYS = ('mnetbidprice',
@@ -7,10 +7,21 @@ HEADER_BIDDING_KEYS = ('mnetbidprice',
                        'amznbid',
                        'fb_bid_price_cents')
 EMPTY = '<EMPTY>'
+AMZBID_MAPPING_PATH = '..\PricePoints-3038-display.csv'
 
 class NetworkBackfillImpressionEntry:
     def __init__(self, doc):
         self.doc = doc
+        self.load_amznbid_price_mapping()
+
+    def load_amznbid_price_mapping(self):
+        self.amzbid_mapping = {}
+        with open(AMZBID_MAPPING_PATH) as infile:
+            csv_reader = csv.reader(infile, delimiter=',')
+            next(csv_reader)
+            for line in csv_reader:
+                self.amzbid_mapping[line[-1]] = float(line[-2].replace('$', '').strip())
+
 
     def build_entry(self):
         self.target = []
@@ -18,7 +29,9 @@ class NetworkBackfillImpressionEntry:
 
         ''' Duration '''
         if pd.isnull(self.doc['SellerReservePrice']) or not type(self.doc['SellerReservePrice']) is float:
-            return None
+            self.entry = None
+            self.target = None
+            return
         self.target.append(self.doc['SellerReservePrice'])
 
         ''' Event '''
@@ -42,7 +55,7 @@ class NetworkBackfillImpressionEntry:
         self.entry['RequestedAdUnitSizes'] = self.filter_empty_str(self.doc['RequestedAdUnitSizes']).split('|')
         self.entry['AdPosition'] = self.filter_empty_str(self.doc['AdPosition'])
 
-        for k, v in self.parse_customtargeting(self.doc['CustomTargeting']):
+        for k, v in self.parse_customtargeting(self.doc['CustomTargeting']).items():
             self.entry[k] = v
 
 
@@ -64,8 +77,12 @@ class NetworkBackfillImpressionEntry:
             feat['section'] = []
 
         for hd_key in HEADER_BIDDING_KEYS:
-            feat[hd_key] = float(ct[hd_key]) if hd_key in ct else 0.0
-
+            if hd_key == 'fb_bid_price_cents':
+                feat[hd_key] = float(ct[hd_key]) / 100 if hd_key in ct else 0.0
+            elif hd_key == 'amznbid':
+                feat[hd_key] = self.amzbid_mapping[ct[hd_key]] if hd_key in ct and ct[hd_key] in self.amzbid_mapping else 0.0
+            else:
+                feat[hd_key] = float(ct[hd_key]) if hd_key in ct else 0.0
 
         feat['trend'] = ct['trend'].lower() if 'trend' in ct else EMPTY
         feat['src'] = ct['src'].lower() if 'src' in ct else EMPTY

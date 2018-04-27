@@ -8,7 +8,7 @@ FEATURE_FIELDS = ['URIs_pageno', 'NaturalIDs', 'RefererURL', 'UserId',
                   'SellerReservePrice', 'EstimatedBackfillRevenue',
                   'Time',
                   'RequestLanguage', 'Country', 'Region', 'Metro', 'City', 'AudienceSegmentIds',
-                  'RequestedAdUnitSizes', 'CreativeSize', 'AdPosition'
+                  'RequestedAdUnitSizes', 'CreativeSize', 'AdPosition',
                   'CustomTargeting', ]
 
 
