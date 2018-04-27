@@ -11,15 +11,6 @@ AMZBID_MAPPING_PATH = '..\PricePoints-3038-display.csv'
 class ImpressionEntry:
     def __init__(self, doc):
         self.doc = doc
-        self.load_amznbid_price_mapping()
-
-    def load_amznbid_price_mapping(self):
-        self.amzbid_mapping = {}
-        with open(AMZBID_MAPPING_PATH) as infile:
-            csv_reader = csv.reader(infile, delimiter=',')
-            next(csv_reader)
-            for line in csv_reader:
-                self.amzbid_mapping[line[-1]] = float(line[-2].replace('$', '').strip())
 
 
     def build_entry(self):
@@ -42,11 +33,11 @@ class ImpressionEntry:
         self.entry['Browser'] = self.filter_empty_str(self.doc['Browser']).replace('Any.Any', '').strip()
         self.entry['BandWidth'] = self.filter_empty_str(self.doc['BandWidth'])
         self.entry['OS'] = self.filter_empty_str(self.doc['OS'])
-        self.entry['MobileCarrier'] = self.filter_empty_str(self.doc['MobileCarrier'])
+        # self.entry['MobileCarrier'] = self.filter_empty_str(self.doc['MobileCarrier'])
 
         self.entry['Time'] = self.doc['Time'].hour
 
-        self.entry['RequestLanguage'] = self.filter_empty_str(self.doc['RequestLanguage'])
+        # self.entry['RequestLanguage'] = self.filter_empty_str(self.doc['RequestLanguage'])
         self.entry['Country'] = self.filter_empty_str(self.doc['Country'])
         self.entry['Region'] = self.filter_empty_str(self.doc['Region'])
         # self.entry['Metro'] = self.filter_empty_str(self.doc['Metro'])
@@ -75,14 +66,6 @@ class ImpressionEntry:
             feat['section'] = ct['section'] if type(ct['section']) == list else [ct['section']]
         else:
             feat['section'] = []
-
-        for hd_key in HEADER_BIDDING_KEYS:
-            if hd_key == 'fb_bid_price_cents':
-                feat[hd_key] = float(ct[hd_key]) / 100 if hd_key in ct else 0.0
-            elif hd_key == 'amznbid':
-                feat[hd_key] = self.amzbid_mapping[ct[hd_key]] if hd_key in ct and ct[hd_key] in self.amzbid_mapping else 0.0
-            else:
-                feat[hd_key] = float(ct[hd_key]) if hd_key in ct else 0.0
 
         feat['trend'] = ct['trend'].lower() if 'trend' in ct else EMPTY
         feat['src'] = ct['src'].lower() if 'src' in ct else EMPTY
