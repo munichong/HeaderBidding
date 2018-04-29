@@ -1,4 +1,4 @@
-import numpy as np
+import os, csv
 from pymongo import MongoClient
 from pprint import pprint
 from survival_analysis.NetworkBackfillImpressionEntry import NetworkBackfillImpressionEntry
@@ -15,7 +15,7 @@ FEATURE_FIELDS = ['URIs_pageno', 'NaturalIDs', 'RefererURL', 'UserId',
                   'CustomTargeting', ]
 
 
-class Vectorier:
+class Vectorizer:
     def __init__(self):
         self.client = MongoClient()
         self.counter = defaultdict(Counter)  # {Attribute1:set(feat1, feat2, ...), Attribute2: set(feat1, ...), ...}
@@ -24,15 +24,15 @@ class Vectorier:
         '''count unique attributes'''
         self.col = self.client[dbname][colname]
 
-        STOP = False
+        # STOP = False
         n = 0
         total_entires = self.col.find().count()
         for doc in self.col.find(projection=FEATURE_FIELDS):
             if n % 1000000 == 0:
                 print('%d/%d' % (n, total_entires))
-                if STOP:
-                    break
-                STOP = True
+                # if STOP:
+                #     break
+                # STOP = True
             n += 1
 
             imp_entry = ImpressionEntry(doc)
@@ -63,35 +63,53 @@ class Vectorier:
         if not target:
             return None
         else:
-            return imp_entry.to_feature_vector(self.num_features, self.attr2idx)
+            # return target + imp_entry.to_full_feature_vector(self.num_features, self.attr2idx)
+            return target + imp_entry.to_sparse_feature_vector(self.num_features, self.attr2idx)
 
 
     def transform(self, dbname, colname, ImpressionEntry):
         self.col = self.client[dbname][colname]
         n = 0
-        total_entires = self.col.find().count()
+        total_entries = self.col.find().count()
         matrix = []
         for doc in self.col.find(projection=FEATURE_FIELDS):
-            if n % 10000 == 0:
-                print('%d/%d' % (n, total_entires))
-                print(np.array(matrix))
+            if n % 1000000 == 0:
+                print('%d/%d' % (n, total_entries))
+                yield matrix
+                matrix.clear()
 
             n += 1
             vector = self.transform_one(doc, ImpressionEntry)
             if vector:
                 matrix.append(vector)
 
-        return np.array(matrix)
+        yield matrix
+        matrix.clear()
 
+
+def output_vector_files(path, colname, ImpressionEntry):
+    with open(path, 'a', newline='\n') as outfile:
+        writer = csv.writer(outfile, delimiter=',')
+        writer.writerow([vectorizer.num_features + 2])
+        for mat in vectorizer.transform('Header_Bidding', colname, ImpressionEntry):
+            writer.writerows(mat)
 
 
 if __name__ == "__main__":
-    vectorizer = Vectorier()
+    vectorizer = Vectorizer()
     vectorizer.fit('Header_Bidding', 'NetworkBackfillImpressions', NetworkBackfillImpressionEntry)
+    pprint(vectorizer.counter)
     vectorizer.fit('Header_Bidding', 'NetworkImpressions', NetworkImpressionEntry)
     vectorizer.build_attr2idx()
     pprint(vectorizer.counter)
     pprint(vectorizer.attr2idx)
     pprint(vectorizer.num_features)
-    pprint(vectorizer.transform('Header_Bidding', 'NetworkBackfillImpressions', NetworkBackfillImpressionEntry))
 
+    try:
+        os.remove('../Vectors_adxwon.csv')
+        os.remove('../Vectors_adxlose.csv')
+    except OSError:
+        pass
+
+    output_vector_files('../Vectors_adxwon.csv', 'NetworkBackfillImpressions', NetworkBackfillImpressionEntry)
+    output_vector_files('../Vectors_adxlose.csv', 'NetworkImpressions', NetworkImpressionEntry)

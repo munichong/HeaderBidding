@@ -1,5 +1,5 @@
 import csv, pandas as pd
-from datetime import datetime
+from lifelines import CoxPHFitter
 from survival_analysis.ImpressionEntry import ImpressionEntry
 
 HEADER_BIDDING_KEYS = ('mnetbidprice',
@@ -42,16 +42,3 @@ class NetworkImpressionEntry(ImpressionEntry):
 
     def to_closest_5cents(self, num):
         return num - (num % 0.05)
-
-
-    def to_feature_vector(self, n_feats, attr2idx):
-        vector = [0] * n_feats
-        for attr, feats in self.entry.items():
-            if type(feats) == list:
-                for f in feats:
-                    vector[attr2idx[attr][f]] = 1
-            elif type(feats) == str:
-                vector[attr2idx[attr][feats]] = 1
-            else:
-                vector[attr2idx[attr][attr]] = feats
-        return vector

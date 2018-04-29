@@ -12,24 +12,11 @@ class ImpressionEntry:
     def __init__(self, doc):
         self.doc = doc
 
-
     def build_entry(self):
-        # self.target = []
         self.entry = {}
 
-        # ''' Duration '''
-        # if pd.isnull(self.doc['SellerReservePrice']) or not type(self.doc['SellerReservePrice']) is float:
-        #     self.entry = None
-        #     self.target = None
-        #     return
-        # self.target.append(self.doc['SellerReservePrice'])
-        #
-        # ''' Event '''
-        # self.target.append(1)
-
-
         self.entry['DeviceCategory'] = self.filter_empty_str(self.doc['DeviceCategory'])
-        self.entry['MobileDevice'] = self.filter_empty_str(self.doc['MobileDevice'])
+        # self.entry['MobileDevice'] = self.filter_empty_str(self.doc['MobileDevice'])
         self.entry['Browser'] = self.filter_empty_str(self.doc['Browser']).replace('Any.Any', '').strip()
         self.entry['BandWidth'] = self.filter_empty_str(self.doc['BandWidth'])
         self.entry['OS'] = self.filter_empty_str(self.doc['OS'])
@@ -39,7 +26,7 @@ class ImpressionEntry:
 
         # self.entry['RequestLanguage'] = self.filter_empty_str(self.doc['RequestLanguage'])
         self.entry['Country'] = self.filter_empty_str(self.doc['Country'])
-        self.entry['Region'] = self.filter_empty_str(self.doc['Region'])
+        # self.entry['Region'] = self.filter_empty_str(self.doc['Region'])
         # self.entry['Metro'] = self.filter_empty_str(self.doc['Metro'])
         # self.entry['City'] = self.filter_empty_str(self.doc['City'])
 
@@ -55,7 +42,6 @@ class ImpressionEntry:
 
         feat['displaychannel'] = ct['displaychannel'] if 'displaychannel' in ct else EMPTY
         feat['displaysection'] = ct['displaysection'] if 'displaysection' in ct else EMPTY
-
 
         if 'channel' in ct:
             feat['channel'] = ct['channel'] if type(ct['channel']) == list else [ct['channel']]
@@ -99,3 +85,31 @@ class ImpressionEntry:
                 header_bids[i] = float(ct[hd_key]) if hd_key in ct else 0.0
         return header_bids
 
+    def to_full_feature_vector(self, n_feats, attr2idx):
+        vector = [0] * n_feats
+        for attr, feats in self.entry.items():
+            if type(feats) == list:
+                for f in feats:
+                    vector[attr2idx[attr][f]] = 1
+            elif type(feats) == str:
+                vector[attr2idx[attr][feats]] = 1
+            else:
+                vector[attr2idx[attr][attr]] = feats
+        return vector + self.get_headerbidding()
+
+    def to_sparse_feature_vector(self, n_feats, attr2idx):
+        vector = []
+        for attr, feats in self.entry.items():
+            if type(feats) == list:
+                for f in feats:
+                    vector.append(':'.join(map(str, [attr2idx[attr][f], 1])))
+            elif type(feats) == str:
+                vector.append(':'.join(map(str, [attr2idx[attr][feats], 1])))
+            else:
+                vector.append(':'.join(map(str, [attr2idx[attr][attr], feats])))
+        # append header bids
+        for i, bid in enumerate(self.get_headerbidding()):
+            if bid == 0:
+                continue
+            vector.append(':'.join(map(str, [n_feats + i, bid])))
+        return vector
