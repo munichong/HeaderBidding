@@ -35,7 +35,7 @@ class ImpressionEntry:
         self.entry['OS'] = self.filter_empty_str(self.doc['OS'])
         # self.entry['MobileCarrier'] = self.filter_empty_str(self.doc['MobileCarrier'])
 
-        self.entry['Time'] = self.doc['Time'].hour
+        self.entry['Time'] = str(self.doc['Time'].hour)
 
         # self.entry['RequestLanguage'] = self.filter_empty_str(self.doc['RequestLanguage'])
         self.entry['Country'] = self.filter_empty_str(self.doc['Country'])
@@ -68,7 +68,7 @@ class ImpressionEntry:
             feat['section'] = []
 
         feat['trend'] = ct['trend'].lower() if 'trend' in ct else EMPTY
-        feat['src'] = ct['src'].lower() if 'src' in ct else EMPTY
+        # feat['src'] = ct['src'].lower() if 'src' in ct else EMPTY
         feat['type'] = ct['type'].lower() if 'type' in ct else EMPTY
         feat['ht'] = ct['ht'].lower() if 'ht' in ct else EMPTY
 
@@ -78,4 +78,24 @@ class ImpressionEntry:
         if not string or pd.isnull(string):
             return EMPTY
         return string.lower()
+
+    def load_amznbid_price_mapping(self):
+        self.amzbid_mapping = {}
+        with open(AMZBID_MAPPING_PATH) as infile:
+            csv_reader = csv.reader(infile, delimiter=',')
+            next(csv_reader)
+            for line in csv_reader:
+                self.amzbid_mapping[line[-1]] = float(line[-2].replace('$', '').strip())
+
+    def get_headerbidding(self):
+        ct = self.doc['CustomTargeting']
+        header_bids = [0] * len(HEADER_BIDDING_KEYS)
+        for i, hd_key in enumerate(HEADER_BIDDING_KEYS):
+            if hd_key == 'fb_bid_price_cents':
+                header_bids[i] = float(ct[hd_key]) / 100 if hd_key in ct else 0.0
+            elif hd_key == 'amznbid':
+                header_bids[i] = self.amzbid_mapping[ct[hd_key]] if hd_key in ct and ct[hd_key] in self.amzbid_mapping else 0.0
+            else:
+                header_bids[i] = float(ct[hd_key]) if hd_key in ct else 0.0
+        return header_bids
 
