@@ -2,14 +2,6 @@ import csv, pandas as pd
 from lifelines import CoxPHFitter
 from survival_analysis.ImpressionEntry import ImpressionEntry
 
-HEADER_BIDDING_KEYS = ('mnetbidprice',
-                       'mnet_abd',
-                       'mnet_fbcpm',
-                       'amznbid',
-                       'fb_bid_price_cents')
-EMPTY = '<EMPTY>'
-AMZBID_MAPPING_PATH = '..\PricePoints-3038-display.csv'
-
 class NetworkImpressionEntry(ImpressionEntry):
     def __init__(self, doc):
         super().__init__(doc)

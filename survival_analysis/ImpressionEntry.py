@@ -1,22 +1,25 @@
 import csv, pandas as pd
 
-HEADER_BIDDING_KEYS = ('mnetbidprice',
-                       'mnet_abd',
-                       'mnet_fbcpm',
-                       'amznbid',
-                       'fb_bid_price_cents')
+
 EMPTY = '<EMPTY>'
 AMZBID_MAPPING_PATH = '..\PricePoints-3038-display.csv'
+HEADER_BIDDING_KEYS = ('mnetbidprice',
+                        'mnet_abd',
+                        'mnet_fbcpm',
+                        'amznbid',
+                        'fb_bid_price_cents')
 
 class ImpressionEntry:
     def __init__(self, doc):
         self.doc = doc
+        self.load_amznbid_price_mapping()
+
 
     def build_entry(self):
         self.entry = {}
 
         self.entry['DeviceCategory'] = self.filter_empty_str(self.doc['DeviceCategory'])
-        # self.entry['MobileDevice'] = self.filter_empty_str(self.doc['MobileDevice'])
+        self.entry['MobileDevice'] = self.filter_empty_str(self.doc['MobileDevice'])
         self.entry['Browser'] = self.filter_empty_str(self.doc['Browser']).replace('Any.Any', '').strip()
         self.entry['BandWidth'] = self.filter_empty_str(self.doc['BandWidth'])
         self.entry['OS'] = self.filter_empty_str(self.doc['OS'])
@@ -26,7 +29,7 @@ class ImpressionEntry:
 
         # self.entry['RequestLanguage'] = self.filter_empty_str(self.doc['RequestLanguage'])
         self.entry['Country'] = self.filter_empty_str(self.doc['Country'])
-        # self.entry['Region'] = self.filter_empty_str(self.doc['Region'])
+        self.entry['Region'] = self.filter_empty_str(self.doc['Region'])
         # self.entry['Metro'] = self.filter_empty_str(self.doc['Metro'])
         # self.entry['City'] = self.filter_empty_str(self.doc['City'])
 

@@ -3,6 +3,7 @@ from pymongo import MongoClient
 from pprint import pprint
 from survival_analysis.NetworkBackfillImpressionEntry import NetworkBackfillImpressionEntry
 from survival_analysis.NetworkImpressionEntry import NetworkImpressionEntry
+from survival_analysis.ImpressionEntry import HEADER_BIDDING_KEYS
 from collections import defaultdict, Counter
 
 
@@ -90,7 +91,7 @@ class Vectorizer:
 def output_vector_files(path, colname, ImpressionEntry):
     with open(path, 'a', newline='\n') as outfile:
         writer = csv.writer(outfile, delimiter=',')
-        writer.writerow([vectorizer.num_features + 2])
+        writer.writerow([2 + vectorizer.num_features + len(HEADER_BIDDING_KEYS)])
         for mat in vectorizer.transform('Header_Bidding', colname, ImpressionEntry):
             writer.writerows(mat)
 
