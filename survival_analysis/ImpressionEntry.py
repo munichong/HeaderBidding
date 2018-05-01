@@ -7,6 +7,7 @@ HEADER_BIDDING_KEYS = ('mnetbidprice',
                         'mnet_abd',
                         'mnet_fbcpm',
                         'amznbid',
+                        'crt_pb',
                         'fb_bid_price_cents')
 
 class ImpressionEntry:
@@ -61,6 +62,9 @@ class ImpressionEntry:
         feat['type'] = ct['type'].lower() if 'type' in ct else EMPTY
         feat['ht'] = ct['ht'].lower() if 'ht' in ct else EMPTY
 
+        # if max(self.get_headerbidding()) + 5 <= self.doc['SellerReservePrice']:
+        #     print(self.doc['SellerReservePrice'], self.doc['CustomTargeting'])
+
         return feat
 
     def filter_empty_str(self, string):
@@ -75,6 +79,12 @@ class ImpressionEntry:
             next(csv_reader)
             for line in csv_reader:
                 self.amzbid_mapping[line[-1]] = float(line[-2].replace('$', '').strip())
+
+    def has_headerbidding(self):
+        ct = self.doc['CustomTargeting']
+        if any(hd in ct for hd in HEADER_BIDDING_KEYS if hd != 'amznbid') or ('amznbid' in ct and ct['amznbid'] in self.amzbid_mapping):
+            return True
+        return False
 
     def get_headerbidding(self):
         ct = self.doc['CustomTargeting']

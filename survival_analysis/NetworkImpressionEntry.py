@@ -10,9 +10,9 @@ class NetworkImpressionEntry(ImpressionEntry):
         target = []
 
         ''' Duration '''
-        floor_price = self.get_floor_price()
-        if not floor_price:
+        if not self.is_qualified():
             return None
+        floor_price = self.get_floor_price()
         target.append(floor_price)
 
         ''' Event '''
@@ -34,3 +34,8 @@ class NetworkImpressionEntry(ImpressionEntry):
 
     def to_closest_5cents(self, num):
         return num - (num % 0.05)
+
+    def is_qualified(self):
+        if not self.has_headerbidding():
+            return False
+        return True
