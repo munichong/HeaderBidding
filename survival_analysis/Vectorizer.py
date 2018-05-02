@@ -41,8 +41,12 @@ class Vectorizer:
 
             if not imp_entry.is_qualified():
                 continue
-            # if imp_entry.get_reserveprice() == 0.05:
-            #     print(imp_entry.get_reserveprice(), imp_entry.get_headerbidding(), imp_entry.doc['CustomTargeting'])
+
+            # if imp_entry.get_reserveprice() > imp_entry.get_revenue():
+            #     # max(imp_entry.get_headerbidding())
+            #     print(imp_entry.get_reserveprice(), imp_entry.get_revenue(), imp_entry.doc['CustomTargeting'])
+            #     print(imp_entry.doc)
+            #     print()
 
             for k, v in imp_entry.entry.items():
                 if type(v) == list:
@@ -66,9 +70,10 @@ class Vectorizer:
     def transform_one(self, doc, ImpressionEntry):
         imp_entry = ImpressionEntry(doc)
         imp_entry.build_entry()
-        if not imp_entry.is_qualified():
-            return None
         target = imp_entry.get_target()
+        if not imp_entry.is_qualified() or not target:
+            return None
+
         # return target + imp_entry.to_full_feature_vector(self.num_features, self.attr2idx)
         return target + imp_entry.to_sparse_feature_vector(self.num_features, self.attr2idx)
 

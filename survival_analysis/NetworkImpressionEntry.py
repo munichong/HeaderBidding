@@ -12,11 +12,11 @@ class NetworkImpressionEntry(ImpressionEntry):
         ''' Duration '''
         if not self.is_qualified():
             return None
-        floor_price = self.get_floor_price()
-        target.append(floor_price)
+        duration = self.get_floor_price()
+        target.append(duration)
 
         ''' Event '''
-        target.append(0)
+        target.append(1)
 
         return target
 
@@ -36,6 +36,6 @@ class NetworkImpressionEntry(ImpressionEntry):
         return num - (num % 0.05)
 
     def is_qualified(self):
-        if not self.has_headerbidding():
+        if not self.has_headerbidding():  # header-bidding-won impression must contain header bids.
             return False
         return True
