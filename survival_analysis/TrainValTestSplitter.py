@@ -3,7 +3,6 @@ import csv, random
 ADXWON_INFILE_PATH, ADXLOSE_INFILE_PATH = '../Vectors_adxwon.csv', '../Vectors_adxlose.csv'
 TRAIN_OUTFILE_PATH, VAL_OUTFILE_PATH, TEST_OUTFILE_PATH = '../Vectors_train.csv', '../Vectors_val.csv', '../Vectors_test.csv'
 
-
 TRAIN_PCT, VAL_PCT = 0.8, 0.1
 
 
