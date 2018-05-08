@@ -1,11 +1,7 @@
-import json, re, logging, time
+import logging
 import pandas as pd
-import numpy as np
-from datetime import datetime
-from urllib.request import urlopen
 
-from util.parameters import HEADER_BIDDING_KEYS, FORBES_API_ROOT
-from data_matching.DFPDataClass import DFPData
+from data_matching.data_class.DFPDataClass import DFPData
 
 
 logger = logging.getLogger()

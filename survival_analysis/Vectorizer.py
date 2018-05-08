@@ -1,9 +1,9 @@
 import os, csv
 from pymongo import MongoClient
 from pprint import pprint
-from survival_analysis.NetworkBackfillImpressionEntry import NetworkBackfillImpressionEntry
-from survival_analysis.NetworkImpressionEntry import NetworkImpressionEntry
-from survival_analysis.ImpressionEntry import HEADER_BIDDING_KEYS
+from survival_analysis.data_entry_class.NetworkBackfillImpressionEntry import NetworkBackfillImpressionEntry
+from survival_analysis.data_entry_class.NetworkImpressionEntry import NetworkImpressionEntry
+from survival_analysis.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
 from collections import defaultdict, Counter
 
 

@@ -1,6 +1,4 @@
-import csv, pandas as pd
-from lifelines import CoxPHFitter
-from survival_analysis.ImpressionEntry import ImpressionEntry
+from survival_analysis.data_entry_class.ImpressionEntry import ImpressionEntry
 
 class NetworkImpressionEntry(ImpressionEntry):
     def __init__(self, doc):

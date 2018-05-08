@@ -1,6 +1,5 @@
-import csv, pandas as pd
-from datetime import datetime
-from survival_analysis.ImpressionEntry import ImpressionEntry
+import pandas as pd
+from survival_analysis.data_entry_class.ImpressionEntry import ImpressionEntry
 
 
 class NetworkBackfillImpressionEntry(ImpressionEntry):
