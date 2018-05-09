@@ -13,8 +13,8 @@ def num_lines(file_path):
 def print_lines_info(file_path):
     print("%d lines in the %s" % (num_lines(file_path), file_path))
 
-print_lines_info(ADXWON_INFILE_PATH)
-print_lines_info(ADXLOSE_INFILE_PATH)
+for infile_path in (ADXWON_INFILE_PATH, ADXLOSE_INFILE_PATH):
+    print_lines_info(infile_path)
 
 
 training_data, validation_data, test_data = [], [], []
@@ -34,13 +34,17 @@ def random_split(INFILE_PATH):
             else:
                 test_data.append(line)
 
-
+print()
+print("Splitting data...")
 for infile_path in (ADXWON_INFILE_PATH, ADXLOSE_INFILE_PATH):
     random_split(infile_path)
 
+print()
+print("Writing data...")
 for data, outfile_path in ((training_data, TRAIN_OUTFILE_PATH),
                             (validation_data, VAL_OUTFILE_PATH),
                             (test_data, TEST_OUTFILE_PATH)):
     shuffle(data)
     open(outfile_path, 'w', newline='\n').writelines(data)
+    print_lines_info(outfile_path)
 
