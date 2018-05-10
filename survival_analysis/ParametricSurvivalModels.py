@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-class ParametricSurvivalModel:
+class ParametricSurvival:
 
     def __init__(self):
         pass
