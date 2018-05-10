@@ -1,4 +1,4 @@
-import os, csv
+import os, csv, pickle
 from pymongo import MongoClient
 from pprint import pprint
 from survival_analysis.data_entry_class.NetworkBackfillImpressionEntry import NetworkBackfillImpressionEntry
@@ -115,6 +115,9 @@ if __name__ == "__main__":
     pprint(vectorizer.counter)
     pprint(vectorizer.attr2idx)
     pprint(vectorizer.num_features)
+
+    pickle.dump(vectorizer.counter, open("../counter.dict", "wb"))
+    pickle.dump(vectorizer.attr2idx, open("../attr2idx.dict", "wb"))
 
     try:
         os.remove('../Vectors_adxwon.csv')
