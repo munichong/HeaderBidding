@@ -20,6 +20,10 @@ class ParametricSurvival:
                                   shape=[None, num_features],
                                   name='input_vectors')
 
+        time = tf.placeholder(tf.float32, shape=(), name='time')
+        event = tf.placeholder(tf.int32, shape=(), name='time')
+
+
         embedding = tf.Variable(tf.truncated_normal(shape=(num_features, k), mean=0.0, stddev=0.5))
 
 
@@ -36,10 +40,16 @@ class ParametricSurvival:
 
             intercept = tf.Variable(tf.constant(0.1))
             Lambda = feat_x_weights + intercept
+
         else:
+            Lambda = None
             pass
 
-
+        ''' 
+        if event == 0, right-censoring
+        if event == 1, left-censoring 
+        '''
+        distribution.gradient(time, Lambda)
 
 
 
