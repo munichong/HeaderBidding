@@ -6,6 +6,7 @@ class ParametricSurvival:
     def __init__(self):
         pass
 
+
     def run_graph(self, distribution, num_features, k=1):
         '''
 
@@ -15,7 +16,6 @@ class ParametricSurvival:
         :return:
         '''
         # INPUTs
-        is_training = tf.placeholder(tf.bool, shape=(), name='bool_train')
         input_vectors = tf.placeholder(tf.float32,
                                   shape=[None, num_features],
                                   name='input_vectors')
@@ -25,8 +25,6 @@ class ParametricSurvival:
 
 
         embedding = tf.Variable(tf.truncated_normal(shape=(num_features, k), mean=0.0, stddev=0.5))
-
-
 
 
         if k == 1:
@@ -49,8 +47,14 @@ class ParametricSurvival:
         if event == 0, right-censoring
         if event == 1, left-censoring 
         '''
-        distribution.gradient(time, Lambda)
+        survival = tf.cond(event == 1,
+                           lambda: self.left_censoring(distribution, time, Lambda),
+                           lambda: self.right_censoring(distribution, time, Lambda))
 
+    def left_censoring(self, dist, time, Lambda):
+        return dist.gradient(time, Lambda) - dist.gradient(0.0, Lambda)
 
+    def right_censoring(self, dist, time, Lambda):
+        return dist.gradient(np.inf, Lambda) - dist.gradient(time, Lambda)
 
 
