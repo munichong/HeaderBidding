@@ -1,3 +1,4 @@
+import csv
 import tensorflow as tf
 import numpy as np
 
@@ -7,6 +8,7 @@ class TFDataReader:
     def __init__(self, file_path, num_epochs, num_features):
         self.num_features = num_features
         self.dataset = tf.data.TFRecordDataset(file_path).repeat(num_epochs)
+        self.num_data = sum(1 for _ in csv.reader(open(file_path))) - 1  # minus the header line
 
     def make_batch(self, batch_size):
         # Parse records
