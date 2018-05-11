@@ -4,6 +4,11 @@ import tensorflow as tf
 class WeibullDistribution:
 
     def __init__(self, shape=1, threshold=0.05):
+        '''
+
+        :param shape: The Weibull distribution with shape = 1 is the exponential distribution
+        :param threshold:
+        '''
         self.shape = shape
         self.threshold = threshold
 

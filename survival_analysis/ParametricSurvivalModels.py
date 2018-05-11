@@ -28,6 +28,9 @@ class ParametricSurvival:
         intercept = tf.Variable(tf.constant(0.1))
         return feat_x_weights + intercept
 
+    def factorization_machines(self):
+        pass
+
     def run_graph(self, distribution, num_features, batch_size, num_epochs, k=1, learning_rate=0.001):
         '''
 
@@ -46,14 +49,15 @@ class ParametricSurvival:
 
         embeddings = tf.Variable(tf.truncated_normal(shape=(num_features, k), mean=0.0, stddev=0.5))
 
+
         if k == 1:
             ''' treat the input_vectors as masks '''
             ''' input_vectors do NOT need to be binary vectors '''
             Lambda = self.linear_regression(input_vectors, embeddings)
 
         else:
-            Lambda = None
-            pass
+            Lambda = self.factorization_machines()
+
 
         ''' 
         if event == 0, right-censoring
