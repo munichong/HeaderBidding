@@ -61,11 +61,9 @@ class Vectorizer:
         self.attr2idx = defaultdict(dict)  # {Attribute1:set(feat1, feat2, ...), Attribute2: set(feat1, ...), ...}
         self.num_features = 0
         for attr, feat_counter in self.counter.items():
-            current_index = 0  # reset for every attribute
             for feat in self.counter[attr]:
-                self.attr2idx[attr][feat] = current_index
-                current_index += 1
-            self.num_features += current_index
+                self.attr2idx[attr][feat] = self.num_features
+                self.num_features += 1
 
     def transform_one(self, doc, ImpressionEntry):
         imp_entry = ImpressionEntry(doc)

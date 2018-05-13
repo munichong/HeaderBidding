@@ -17,13 +17,13 @@ class ParametricSurvival:
     #     self.test_data_reader = training_data_reader
 
     def left_censoring(self, dist, time, Lambda):
-        return dist.gradient(time, Lambda) - dist.gradient(0.0, Lambda)
+        return dist.gradient(time, Lambda) - dist.gradient(tf.constant(0.0), Lambda)
 
     def right_censoring(self, dist, time, Lambda):
-        return dist.gradient(np.inf, Lambda) - dist.gradient(time, Lambda)
+        return dist.gradient(tf.constant(np.inf), Lambda) - dist.gradient(time, Lambda)
 
     def linear_regression(self, predictors, weights):
-        feat_vals = tf.tile(tf.expand_dims(predictors, axis=-1), [1, 1])
+        feat_vals = tf.tile(tf.expand_dims(predictors, axis=-1), [1, 1, 1])
         feat_x_weights = tf.reduce_sum(tf.multiply(weights, feat_vals), axis=1)
         intercept = tf.Variable(tf.constant(0.1))
         return feat_x_weights + intercept
@@ -63,7 +63,7 @@ class ParametricSurvival:
         if event == 0, right-censoring
         if event == 1, left-censoring 
         '''
-        survival = tf.cond(event == 1,
+        survival = tf.cond(tf.equal(event, 1),
                            lambda: self.left_censoring(distribution, time, Lambda),
                            lambda: self.right_censoring(distribution, time, Lambda))
 
@@ -74,7 +74,7 @@ class ParametricSurvival:
         training_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss_mean)
 
         auc = tf.metrics.auc(labels=event, predictions=not_survival, weights=None)
-        not_survival_binary = tf.cond(not_survival>=0.5, lambda: 1, lambda: 0)
+        not_survival_binary = tf.cond(tf.greater_equal(not_survival, 0.5), lambda: 1, lambda: 0)
         accuracy = tf.metrics.accuracy(labels=event, predictions=not_survival_binary, weights=None)
 
         init = tf.global_variables_initializer()
@@ -82,8 +82,8 @@ class ParametricSurvival:
 
         with tf.Session() as sess:
             init.run()
-            train_data_reader = TFDataReader(self.train_file_path)
-            num_total_batches = int(np.ceil(len(train_data_reader.num_data) / batch_size))
+            train_data_reader = TFDataReader(self.train_file_path, num_epochs, num_features)
+            num_total_batches = int(np.ceil(train_data_reader.num_data / batch_size))
             next_train_batch = train_data_reader.make_batch(batch_size)
             for epoch in range(1, num_epochs + 1):
                 # model training
@@ -148,6 +148,7 @@ if __name__ == "__main__":
     model = ParametricSurvival(train_file_path='../Vectors_train.csv',
                                val_file_path='../Vectors_val.csv',
                                test_file_path='../Vectors_test.csv')
+    print('Start training...')
     model.run_graph(distribution = WeibullDistribution(),
                     num_features = num_features,
                     batch_size = 512,
