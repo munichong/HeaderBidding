@@ -1,39 +1,34 @@
-import csv
+import csv, pickle
 import tensorflow as tf
 import numpy as np
 from scipy.sparse import coo_matrix
+from sklearn.utils import shuffle
 
 
 class SurvivalData:
 
-    def __init__(self, file_path, num_epochs, num_features):
-        self.num_features = num_features
-        self.num_data = sum(1 for _ in csv.reader(open(file_path))) - 1  # minus the header line
-        self.times, self.events, self.sparse_features = self.read_data(file_path)
+    def __init__(self, times, events, sparse_features):
+        self.times, self.events, self.sparse_features = times, events, sparse_features
+        self.num_instances = len(self.times)
 
-    def read_data(self, file_path):
-        times, events = [], []
-        row_indices, col_indices, values = [], [], []
-        num_rows = 0
-        with open(file_path) as infile:
-            csv_reader = csv.reader(infile, delimiter=',')
-            for row_index, row in enumerate(csv_reader):
-                num_rows += 1
-                times.append(float(row[0]))
-                events.append(int(row[1]))
-                for node in row[2:]:
-                    col_index, val = node.split(':')
-                    row_indices.append(row_index)
-                    col_indices.append(int(col_index))
-                    values.append(float(val))
-        return np.array(times), \
-               np.array(events), \
-               coo_matrix((values, (row_indices, col_indices)), shape=(num_rows, self.num_features))
+    def make_batch(self, batch_size):
+        shuffle(self.times, self.events, self.sparse_features)
+        start_index = 0
+        while start_index < self.num_instances:
+            yield self.times[start_index: start_index + batch_size], \
+                  self.events[start_index: start_index + batch_size], \
+                  self.sparse_features[start_index: start_index + batch_size].toarray()
+
+
+
 
 
 if __name__ == "__main__":
-    s = SurvivalData('../Vectors_train.csv', 30, 6026)
-    print(s.times)
-    print(s.events)
-    print(s.sparse_features)
+    times, events, sparse_features = pickle.load(open('../Vectors_train.p', 'rb'))
+    s = SurvivalData(times, events, sparse_features)
+    for t, e, sf in s.make_batch(512):
+        print(t)
+        print(e)
+        print(sf)
+
 
