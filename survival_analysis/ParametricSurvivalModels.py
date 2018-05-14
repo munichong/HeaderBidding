@@ -1,20 +1,18 @@
-import numpy as np
+import numpy as np, pickle
 import tensorflow as tf
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
-from survival_analysis.DataReader import TFDataReader
+from survival_analysis.DataReader import SurvivalData
 from survival_analysis.Distributions import WeibullDistribution
 
 class ParametricSurvival:
 
-    def __init__(self, train_file_path, val_file_path, test_file_path):
-        self.train_file_path = train_file_path
-        self.val_file_path = val_file_path
-        self.test_file_path = test_file_path
+    def __init__(self, distribution, batch_size, num_epochs, k=1, learning_rate=0.001):
+        self.distribution = distribution
+        self.batch_size = batch_size
+        self.num_epochs = num_epochs
+        self.k = k
+        self.learning_rate = learning_rate
 
-    # def __init__(self, training_data_reader):
-    #     self.train_data_reader = training_data_reader
-    #     self.val_data_reader = training_data_reader
-    #     self.test_data_reader = training_data_reader
 
     def left_censoring(self, dist, time, Lambda):
         return dist.gradient(time, Lambda) - dist.gradient(tf.constant(0.0), Lambda)
@@ -31,7 +29,7 @@ class ParametricSurvival:
     def factorization_machines(self):
         pass
 
-    def run_graph(self, distribution, num_features, batch_size, num_epochs, k=1, learning_rate=0.001):
+    def run_graph(self, num_features, train_data, val_data, test_data):
         '''
 
         :param distribution:
@@ -47,10 +45,10 @@ class ParametricSurvival:
         time = tf.placeholder(tf.float32, shape=(), name='time')
         event = tf.placeholder(tf.int32, shape=(), name='event')
 
-        embeddings = tf.Variable(tf.truncated_normal(shape=(num_features, k), mean=0.0, stddev=0.5))
+        embeddings = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.5))
 
 
-        if k == 1:
+        if self.k == 1:
             ''' treat the input_vectors as masks '''
             ''' input_vectors do NOT need to be binary vectors '''
             Lambda = self.linear_regression(input_vectors, embeddings)
@@ -64,14 +62,14 @@ class ParametricSurvival:
         if event == 1, left-censoring 
         '''
         survival = tf.cond(tf.equal(event, 1),
-                           lambda: self.left_censoring(distribution, time, Lambda),
-                           lambda: self.right_censoring(distribution, time, Lambda))
+                           lambda: self.left_censoring(self.distribution, time, Lambda),
+                           lambda: self.right_censoring(self.distribution, time, Lambda))
 
         not_survival = 1 - survival
 
         logloss = tf.losses.log_loss(labels=event, predictions=not_survival, weights=1.0)
         loss_mean = tf.reduce_mean(logloss)
-        training_op = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss_mean)
+        training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
 
         auc = tf.metrics.auc(labels=event, predictions=not_survival, weights=None)
         not_survival_binary = tf.cond(tf.greater_equal(not_survival, 0.5), lambda: 1, lambda: 0)
@@ -82,10 +80,10 @@ class ParametricSurvival:
 
         with tf.Session() as sess:
             init.run()
-            train_data_reader = TFDataReader(self.train_file_path, num_epochs, num_features)
-            num_total_batches = int(np.ceil(train_data_reader.num_data / batch_size))
-            next_train_batch = train_data_reader.make_batch(batch_size)
-            for epoch in range(1, num_epochs + 1):
+
+            num_total_batches = int(np.ceil(train_data.num_instances / self.batch_size))
+            next_train_batch = train_data.make_batch(self.batch_size)
+            for epoch in range(1, self.num_epochs + 1):
                 # model training
                 num_batch = 0
                 for duration_batch, event_batch, features_batch in sess.run(next_train_batch):
@@ -101,22 +99,19 @@ class ParametricSurvival:
                 eval_nodes = [not_survival, not_survival_binary]
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
-                loss_train, auc_train, acc_train = self.evaluate(TFDataReader(self.train_file_path).make_batch(batch_size),
-                                                                 sess, eval_nodes)
+                loss_train, auc_train, acc_train = self.evaluate(train_data, sess, eval_nodes)
                 print("*** On Training Set:\tloss = %.6f\tauc = %.4f\taccuracy = %.4f" % (loss_train, auc_train, acc_train))
 
                 # evaluation on validation data
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
-                loss_val, auc_val, acc_val = self.evaluate(TFDataReader(self.val_file_path).make_batch(batch_size),
-                                                               sess, eval_nodes)
+                loss_val, auc_val, acc_val = self.evaluate(val_data, sess, eval_nodes)
                 print("*** On Validation Set:\tloss = %.6f\tauc = %.4f\taccuracy = %.4f" % (loss_val, auc_val, acc_val))
 
                 # evaluation on test data
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
-                loss_test, auc_test, acc_test = self.evaluate(TFDataReader(self.test_file_path).make_batch(batch_size),
-                                                           sess, eval_nodes)
+                loss_test, auc_test, acc_test = self.evaluate(test_data, sess, eval_nodes)
                 print("*** On Test Set:\tloss = %.6f\tauc = %.4f\taccuracy = %.4f" % (loss_test, auc_test, acc_test))
 
 
@@ -145,12 +140,12 @@ if __name__ == "__main__":
         ''' The first line is the total number of unique features '''
         num_features = int(f.readline())
 
-    model = ParametricSurvival(train_file_path='../Vectors_train.csv',
-                               val_file_path='../Vectors_val.csv',
-                               test_file_path='../Vectors_test.csv')
-    print('Start training...')
-    model.run_graph(distribution = WeibullDistribution(),
-                    num_features = num_features,
+    model = ParametricSurvival(distribution = WeibullDistribution(),
                     batch_size = 512,
                     num_epochs = 30)
-
+    print('Start training...')
+    model.run_graph(num_features,
+                    SurvivalData(*pickle.load(open('../Vectors_train.p', 'rb'))),
+                    SurvivalData(*pickle.load(open('../Vectors_val.p', 'rb'))),
+                    SurvivalData(*pickle.load(open('../Vectors_test.p', 'rb'))),
+                    )
