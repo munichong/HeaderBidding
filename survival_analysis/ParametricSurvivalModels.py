@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
-from survival_analysis.TFDataReader import TFDataReader
+from survival_analysis.DataReader import TFDataReader
 from survival_analysis.Distributions import WeibullDistribution
 
 class ParametricSurvival:
