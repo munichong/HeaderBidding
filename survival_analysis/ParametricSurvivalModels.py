@@ -1,4 +1,5 @@
 import numpy as np, pickle
+
 import tensorflow as tf
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
 from survival_analysis.DataReader import SurvivalData
@@ -14,11 +15,7 @@ class ParametricSurvival:
         self.learning_rate = learning_rate
 
 
-    def left_censoring(self, dist, time, Lambda):
-        return dist.gradient(time, Lambda) - dist.gradient(tf.constant(0.0), Lambda)
 
-    def right_censoring(self, dist, time, Lambda):
-        return dist.gradient(tf.constant(np.inf), Lambda) - dist.gradient(time, Lambda)
 
     def linear_regression(self, predictors, weights):
         feat_vals = tf.tile(tf.expand_dims(predictors, axis=-1), [1, 1, 1])
@@ -62,8 +59,8 @@ class ParametricSurvival:
         if event == 1, left-censoring 
         '''
         survival = tf.where(tf.equal(event, 1),
-                           self.left_censoring(self.distribution, time, Lambda),
-                           self.right_censoring(self.distribution, time, Lambda))
+                            self.distribution.left_censoring(time, Lambda),
+                            self.distribution.right_censoring(time, Lambda))
 
         not_survival = 1 - survival
 

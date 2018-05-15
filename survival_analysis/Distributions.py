@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+import scipy.integrate as integrate
 
 class WeibullDistribution:
 
@@ -12,26 +13,21 @@ class WeibullDistribution:
         self.shape = shape
         self.threshold = threshold
 
-    def gradient(self, time, Lambda):
-        '''
-
-        :param time: i.e., lambda, tf.constant
-        :param Lambda: regression
-        :param shape: i.e., p, tf.constant
-        :param threshold: tf.constant
-        :return:
-        '''
-        return tf.where(tf.not_equal(abs(time), np.inf),
-                        self.gradient_finite(time, Lambda),
-                        self.gradient_infinite(time))
-
-    def gradient_finite(self, time, Lambda):
+    def f_t(self, time, Lambda):
         h = Lambda * self.shape * time ** (self.shape - 1)
         S = tf.exp(-1 * Lambda * time ** self.shape)
-        return tf.gradients(h * S, [time])[0]
-
-    def gradient_infinite(self, time):
-        return tf.zeros_like( time )
+        return h * S
 
 
+    def left_censoring(self, time, Lambda):
+        time = tf.expand_dims(time, axis=-1)
+        return tf.map_fn(lambda y: tf.py_func(
+            lambda x: integrate.quad(self.f_t, 0.0, x[0],args=(x[1],))[0], [y], tf.float64
+        ), tf.concat([time, Lambda], 1))
+
+    def right_censoring(self, time, Lambda):
+        time = tf.expand_dims(time, axis=-1)
+        return tf.map_fn(lambda y: tf.py_func(
+            lambda x: integrate.quad(self.f_t, x[0], np.inf, args=(x[1],))[0], [y], tf.float64
+        ), tf.concat([time, Lambda], 1))
 
