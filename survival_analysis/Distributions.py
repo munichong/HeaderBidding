@@ -21,15 +21,17 @@ class WeibullDistribution:
         :param threshold: tf.constant
         :return:
         '''
-        return tf.cond(tf.not_equal(abs(time), np.inf),
-                       lambda: self.gradient_finite(time, Lambda),
-                       lambda: tf.constant(0.0))
-        # return self.gradient_finite(time, Lambda)[0]
+        return tf.where(tf.not_equal(abs(time), np.inf),
+                        self.gradient_finite(time, Lambda),
+                        self.gradient_infinite(time))
 
     def gradient_finite(self, time, Lambda):
         h = Lambda * self.shape * time ** (self.shape - 1)
         S = tf.exp(-1 * Lambda * time ** self.shape)
-        return tf.gradients(h * S, time)
+        return tf.gradients(h * S, [time])[0]
+
+    def gradient_infinite(self, time):
+        return tf.zeros_like( time )
 
 
 
