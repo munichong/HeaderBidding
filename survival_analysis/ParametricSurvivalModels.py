@@ -53,7 +53,6 @@ class ParametricSurvival:
         else:
             Lambda = self.factorization_machines()
 
-
         ''' 
         if event == 0, right-censoring
         if event == 1, left-censoring 
@@ -63,6 +62,9 @@ class ParametricSurvival:
                             self.distribution.right_censoring(time, Lambda))
 
         not_survival = 1 - survival
+
+        print(event.get_shape())
+        print(survival.get_shape())
 
         logloss = tf.losses.log_loss(labels=event, predictions=not_survival, weights=1.0)
         loss_mean = tf.reduce_mean(logloss)
