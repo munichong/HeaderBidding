@@ -7,7 +7,7 @@ from survival_analysis.Distributions import WeibullDistribution
 
 class ParametricSurvival:
 
-    def __init__(self, distribution, batch_size, num_epochs, k=1, learning_rate=0.001):
+    def __init__(self, distribution, batch_size, num_epochs, k=1, learning_rate=0.01):
         self.distribution = distribution
         self.batch_size = batch_size
         self.num_epochs = num_epochs
@@ -150,7 +150,9 @@ if __name__ == "__main__":
 
     model = ParametricSurvival(distribution = WeibullDistribution(),
                     batch_size = 100000,
-                    num_epochs = 30)
+                    num_epochs = 30,
+                    k = 1,
+                    learning_rate = 0.01 )
     print('Start training...')
     model.run_graph(num_features,
                     SurvivalData(*pickle.load(open('../Vectors_train.p', 'rb'))),
