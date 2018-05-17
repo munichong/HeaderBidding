@@ -7,7 +7,7 @@ from survival_analysis.Distributions import WeibullDistribution
 
 class ParametricSurvival:
 
-    def __init__(self, distribution, batch_size, num_epochs, k=1, learning_rate=0.001):
+    def __init__(self, distribution, batch_size, num_epochs, k=1, learning_rate=0.0001):
         self.distribution = distribution
         self.batch_size = batch_size
         self.num_epochs = num_epochs
@@ -17,11 +17,11 @@ class ParametricSurvival:
 
 
 
-    def linear_regression(self, predictors, weights):
+    def regression(self, predictors, weights):
         feat_vals = tf.tile(tf.expand_dims(predictors, axis=-1), [1, 1, 1])
         feat_x_weights = tf.reduce_sum(tf.multiply(weights, feat_vals), axis=1)
         intercept = tf.Variable(tf.constant(0.1))
-        return feat_x_weights + intercept
+        return tf.exp(tf.squeeze(feat_x_weights + intercept, [-1]))
 
     def factorization_machines(self):
         pass
@@ -48,7 +48,7 @@ class ParametricSurvival:
         if self.k == 1:
             ''' treat the input_vectors as masks '''
             ''' input_vectors do NOT need to be binary vectors '''
-            Lambda = self.linear_regression(input_vectors, embeddings)
+            Lambda = self.regression(input_vectors, embeddings)
 
         else:
             Lambda = self.factorization_machines()
@@ -63,8 +63,6 @@ class ParametricSurvival:
 
         not_survival = 1 - survival
 
-        print(event.get_shape())
-        print(survival.get_shape())
 
         logloss = tf.losses.log_loss(labels=event, predictions=not_survival, weights=1.0)
         loss_mean = tf.reduce_mean(logloss)
@@ -96,7 +94,7 @@ class ParametricSurvival:
                 for duration_batch, event_batch, features_batch in next_train_batch:
                     num_batch += 1
                     sess.run(running_vars_initializer)
-                    _, loss_batch, _, _, survival_batch = sess.run([training_op, loss_mean, auc_update, acc_update, survival],
+                    _, loss_batch, _, _, Lambda_batch, survival_batch = sess.run([training_op, loss_mean, auc_update, acc_update, Lambda, survival],
                                                                    feed_dict={input_vectors: features_batch,
                                                                               time: duration_batch,
                                                                               event: event_batch})
@@ -105,6 +103,7 @@ class ParametricSurvival:
                     # print(loss_batch)
                     # print(auc_batch)
                     # print(acc_batch)
+                    # print(Lambda_batch)
                     print(survival_batch)
                     print("Epoch %d - Batch %d/%d: loss = %.4f, auc = %.4f, accuracy = %.4f" %
                           (epoch, num_batch, num_total_batches, loss_batch, auc_batch, acc_batch))
@@ -149,7 +148,7 @@ if __name__ == "__main__":
         num_features = int(f.readline())
 
     model = ParametricSurvival(distribution = WeibullDistribution(),
-                    batch_size = 512,
+                    batch_size = 3000,
                     num_epochs = 30)
     print('Start training...')
     model.run_graph(num_features,

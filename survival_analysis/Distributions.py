@@ -13,13 +13,8 @@ class WeibullDistribution:
         self.shape = shape
         self.threshold = threshold
 
-
-
     def left_censoring(self, time, Lambda):
-        return self.integrated(tf.constant(0.0), time, Lambda)
+        return 1 - tf.exp(-1 * Lambda * time ** self.shape)
 
     def right_censoring(self, time, Lambda):
-        return self.integrated(time, tf.constant(np.inf), Lambda)
-
-    def integrated(self, lower, upper, Lambda):
-        return tf.exp(-1 * Lambda * lower ** self.shape) - tf.exp(-1 * Lambda * upper ** self.shape)
+        return tf.exp(-1 * Lambda * time ** self.shape)
