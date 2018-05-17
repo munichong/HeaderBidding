@@ -15,8 +15,6 @@ class ParametricSurvival:
         self.learning_rate = learning_rate
 
 
-
-
     def regression(self, predictors, weights):
         feat_vals = tf.tile(tf.expand_dims(predictors, axis=-1), [1, 1, 1])
         feat_x_weights = tf.reduce_sum(tf.multiply(weights, feat_vals), axis=1)
@@ -106,7 +104,7 @@ class ParametricSurvival:
                                                                               event: event_batch})
 
 
-                    print(Lambda_batch)
+                    # print(Lambda_batch)
                     print(survival_batch)
                     print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
                           (epoch, num_batch, num_total_batches, loss_batch))
@@ -149,10 +147,10 @@ if __name__ == "__main__":
         num_features = int(f.readline())
 
     model = ParametricSurvival(distribution = WeibullDistribution(),
-                    batch_size = 100000,
-                    num_epochs = 30,
+                    batch_size = 5000,
+                    num_epochs = 20,
                     k = 1,
-                    learning_rate = 0.01 )
+                    learning_rate = 0.001 )
     print('Start training...')
     model.run_graph(num_features,
                     SurvivalData(*pickle.load(open('../Vectors_train.p', 'rb'))),
