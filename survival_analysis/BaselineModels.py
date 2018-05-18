@@ -4,9 +4,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
 
 class UnivariateLogisticRegression:
-    # def get_data(self, file_path):
-    #     times, events, _ = pickle.load(open(file_path, 'rb'))
-    #     return times. events
+
     def __init__(self):
         self.lr = LogisticRegression(penalty='l2', C=1.0)
 
@@ -27,11 +25,17 @@ class UnivariateLogisticRegression:
 
 
 if __name__ == '__main__':
+    def read_data(file_path):
+        return pickle.load(open(file_path, 'rb'))
+
+    def expand_dims(data_list, axis):
+        return [np.expand_dims(d, axis=axis) for d in data_list]
+
     baseline = UnivariateLogisticRegression()
 
-    times_train, events_train, _ = pickle.load(open('../Vectors_train.p', 'rb'))
-    times_val, events_val, _ = pickle.load(open('../Vectors_val.p', 'rb'))
-    times_test, events_test, _ = pickle.load(open('../Vectors_test.p', 'rb'))
+    times_train, events_train = expand_dims(read_data('../Vectors_train.p')[:2], axis=1)
+    times_val, events_val = expand_dims(read_data('../Vectors_val.p')[:2], axis=1)
+    times_test, events_test = expand_dims(read_data('../Vectors_test.p')[:2], axis=1)
 
     baseline.fit(np.array(times_train), np.array(events_train))
     print(baseline.evaluate(np.array(times_train), np.array(events_train)))
