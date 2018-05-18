@@ -28,14 +28,17 @@ if __name__ == '__main__':
     def read_data(file_path):
         return pickle.load(open(file_path, 'rb'))
 
-    def expand_dims(data_list, axis):
-        return [np.expand_dims(d, axis=axis) for d in data_list]
+    def expand_dims(data, axis):
+        return np.expand_dims(d, axis=axis)
 
     baseline = UnivariateLogisticRegression()
 
-    times_train, events_train = expand_dims(read_data('../Vectors_train.p')[:2], axis=1)
-    times_val, events_val = expand_dims(read_data('../Vectors_val.p')[:2], axis=1)
-    times_test, events_test = expand_dims(read_data('../Vectors_test.p')[:2], axis=1)
+    times_train, events_train = read_data('../Vectors_train.p')[:2]
+    times_train, events_train = expand_dims(times_train, axis=1), events_train
+    times_val, events_val = read_data('../Vectors_val.p')[:2]
+    times_val, events_val = expand_dims(times_val, axis=1), events_val
+    times_test, events_test = read_data('../Vectors_test.p')[:2]
+    times_test, events_test = expand_dims(times_test, axis=1), events_test
 
     baseline.fit(np.array(times_train), np.array(events_train))
     print(baseline.evaluate(np.array(times_train), np.array(events_train)))
