@@ -27,7 +27,7 @@ class ParametricSurvival:
     def factorization_machines(self):
         pass
 
-    def run_graph(self, num_features, train_data, val_data, test_data):
+    def run_graph(self, num_features, train_data, val_data, test_data, sample_weights=None):
         '''
 
         :param distribution:
@@ -66,8 +66,9 @@ class ParametricSurvival:
 
         not_survival = 1 - survival
 
-
-        logloss = tf.losses.log_loss(labels=event, predictions=not_survival, weights=time)
+        logloss = tf.losses.log_loss(labels=event, predictions=not_survival)
+        if sample_weights.lower() == 'time':
+            logloss = tf.losses.log_loss(labels=event, predictions=not_survival, weights=time)
         running_loss, loss_update = tf.metrics.mean(logloss)
         loss_mean = tf.reduce_mean(logloss)
         training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
@@ -76,8 +77,12 @@ class ParametricSurvival:
         not_survival_binary = tf.where(tf.greater_equal(not_survival, 0.5),
                                        tf.ones(tf.shape(not_survival)),
                                        tf.zeros(tf.shape(not_survival)))
-        running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival, weights=time)
-        running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_binary, weights=time)
+
+        running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival)
+        running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_binary)
+        if sample_weights.lower() == 'time':
+            running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival, weights=time)
+            running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_binary, weights=time)
 
         # Isolate the variables stored behind the scenes by the metric operation
         running_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="my_metric")
@@ -156,4 +161,4 @@ if __name__ == "__main__":
                     SurvivalData(*pickle.load(open('../Vectors_train.p', 'rb'))),
                     SurvivalData(*pickle.load(open('../Vectors_val.p', 'rb'))),
                     SurvivalData(*pickle.load(open('../Vectors_test.p', 'rb'))),
-                    )
+                    sample_weights='time')
