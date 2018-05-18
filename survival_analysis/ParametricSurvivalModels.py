@@ -76,7 +76,7 @@ class ParametricSurvival:
         not_survival_binary = tf.where(tf.greater_equal(not_survival, 0.5),
                                        tf.ones(tf.shape(not_survival)),
                                        tf.zeros(tf.shape(not_survival)))
-        running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival_binary, weights=time)
+        running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival, weights=time)
         running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_binary, weights=time)
 
         # Isolate the variables stored behind the scenes by the metric operation

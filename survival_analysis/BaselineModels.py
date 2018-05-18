@@ -9,7 +9,7 @@ class UnivariateLogisticRegression:
         self.lr = LogisticRegression(penalty='l2', C=1.0)
 
     def fit(self, X, y):
-        return self.lr.fit(X, y)
+        return self.lr.fit(X, y, sample_weight=np.squeeze(X))
 
     def predict_proba(self, X):
         return self.lr.predict_proba(X)
@@ -19,9 +19,14 @@ class UnivariateLogisticRegression:
 
     def evaluate(self, X, y_bin_true):
         print(np.array(X).shape, np.array(y_bin_true).shape)
-        y_prob_pred = self.predict_proba(X)
+        print(self.lr.classes_)
+        y_proba_pred = self.predict_proba(X)[:,1]
+        print(y_proba_pred)
         y_bin_pred = self.predict(X)
-        return log_loss(y_bin_true, y_prob_pred), roc_auc_score(y_bin_true, y_bin_pred), accuracy_score(y_bin_true, y_bin_pred)
+        print(y_bin_pred)
+        return log_loss(y_bin_true, y_proba_pred, sample_weight=np.squeeze(X)), \
+               roc_auc_score(y_bin_true, y_proba_pred, sample_weight=np.squeeze(X)), \
+                accuracy_score(y_bin_true, y_bin_pred, sample_weight=np.squeeze(X))
 
 
 
@@ -42,6 +47,6 @@ if __name__ == '__main__':
     times_test = expand_dims(times_test, axis=1)
 
     baseline.fit(np.array(times_train), np.array(events_train))
-    print("Training Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" % baseline.evaluate(np.array(times_train), np.array(events_train)))
-    print("Validation Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" % baseline.evaluate(np.array(times_val), np.array(events_val)))
-    print("Test Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" % baseline.evaluate(np.array(times_test), np.array(events_test)))
+    print("Training Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" % baseline.evaluate(times_train, np.array(events_train)))
+    print("Validation Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" % baseline.evaluate(times_val, np.array(events_val)))
+    print("Test Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" % baseline.evaluate(times_test, np.array(events_test)))

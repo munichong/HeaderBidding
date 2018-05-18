@@ -99,7 +99,7 @@ class Vectorizer:
 def output_vector_files(path, colname, ImpressionEntry):
     with open(path, 'a', newline='\n') as outfile:
         writer = csv.writer(outfile, delimiter=',')
-        writer.writerow([vectorizer.num_features + len(HEADER_BIDDING_KEYS)])  # the number of features WITHOUT 'duration' and 'event'
+        writer.writerow([vectorizer.num_features + len(HEADER_BIDDING_KEYS)])  # the number of features WITH header bidding BUT WITHOUT 'duration' and 'event'
         for mat in vectorizer.transform('Header_Bidding', colname, ImpressionEntry):
             writer.writerows(mat)
 
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     pprint(vectorizer.num_features)
 
     pickle.dump(vectorizer.counter, open("../counter.dict", "wb"))
-    pickle.dump(vectorizer.attr2idx, open("../attr2idx.dict", "wb"))
+    pickle.dump(vectorizer.attr2idx, open("../attr2idx.dict", "wb"))  # the dict does not contain header bidding.
 
     try:
         os.remove('../Vectors_adxwon.csv')
