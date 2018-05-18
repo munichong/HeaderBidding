@@ -45,9 +45,16 @@ class KaplanMeier:
     def predict_proba(self, X):
         return pd.Series(map(self._get_one_prediction, X))
 
-    def evalute(self, X, y_bin_true, sample_weights=None):
-        pass
+    def predict(self, X):
+        y_proba_pred = pd.Series(map(self._get_one_prediction, X)).values
+        return np.where(y_proba_pred>=0.5, 1.0, 0.0)
 
+    def evalute(self, X, y_bin_true, sample_weights=None):
+        y_proba_pred = self.predict_proba(X)
+        y_bin_pred = self.predict(X)
+        return log_loss(y_bin_true, y_proba_pred, sample_weight=sample_weights), \
+               roc_auc_score(y_bin_true, y_proba_pred, sample_weight=sample_weights), \
+               accuracy_score(y_bin_true, y_bin_pred, sample_weight=sample_weights)
 
 
 
@@ -70,9 +77,9 @@ if __name__ == '__main__':
     times_test = expand_dims(times_test, axis=1)
 
     baseline.fit(np.array(times_train), np.array(events_train))
-    # print("Training Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
-    #       baseline.evaluate(times_train, np.array(events_train), sample_weights=np.squeeze(times_train)))
-    # print("Validation Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
-    #       baseline.evaluate(times_val, np.array(events_val), sample_weights=np.squeeze(times_train)))
-    # print("Test Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
-    #       baseline.evaluate(times_test, np.array(events_test), sample_weights=np.squeeze(times_train)))
+    print("Training Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+          baseline.evaluate(times_train, np.array(events_train), sample_weights=np.squeeze(times_train)))
+    print("Validation Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+          baseline.evaluate(times_val, np.array(events_val), sample_weights=np.squeeze(times_train)))
+    print("Test Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+          baseline.evaluate(times_test, np.array(events_test), sample_weights=np.squeeze(times_train)))
