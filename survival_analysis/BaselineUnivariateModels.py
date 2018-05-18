@@ -1,5 +1,5 @@
 import pickle
-import numpy as np
+import numpy as np, pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
 from lifelines import KaplanMeierFitter
@@ -36,9 +36,18 @@ class KaplanMeier:
         self.kmf = KaplanMeierFitter()
 
     def fit(self, X, y):
-        self.kmf.fit(durations=X, event_observed=y)
-        self.kmf.plot()
+        self.kmf.fit(durations=X, event_observed=y, left_censorship=True)
         return self
+
+    def _get_one_prediction(self, x):
+        return self.kmf.survival_function_.loc[self.kmf.survival_function_.ix[:,0]==x]
+
+    def predict_proba(self, X):
+        return pd.Series(map(self._get_one_prediction, X))
+
+    def evalute(self, X, y_bin_true, sample_weights=None):
+        pass
+
 
 
 
