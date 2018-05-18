@@ -31,6 +31,17 @@ class UnivariateLogisticRegression:
                accuracy_score(y_bin_true, y_bin_pred, sample_weight=sample_weights)
 
 
+class KaplanMeier:
+    def __init__(self):
+        self.kmf = KaplanMeierFitter()
+
+    def fit(self, X, y):
+        self.kmf.fit(durations=X, event_observed=y)
+        self.kmf.plot()
+        return self
+
+
+
 
 if __name__ == '__main__':
     def read_data(file_path):
@@ -39,7 +50,8 @@ if __name__ == '__main__':
     def expand_dims(data, axis):
         return np.expand_dims(data, axis=axis)
 
-    baseline = UnivariateLogisticRegression()
+    # baseline = UnivariateLogisticRegression()
+    baseline = KaplanMeier()
 
     times_train, events_train = read_data('../Vectors_train.p')[:2]
     times_train = expand_dims(times_train, axis=1)
@@ -49,9 +61,9 @@ if __name__ == '__main__':
     times_test = expand_dims(times_test, axis=1)
 
     baseline.fit(np.array(times_train), np.array(events_train))
-    print("Training Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
-          baseline.evaluate(times_train, np.array(events_train), sample_weights=np.squeeze(times_train)))
-    print("Validation Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
-          baseline.evaluate(times_val, np.array(events_val), sample_weights=np.squeeze(times_train)))
-    print("Test Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
-          baseline.evaluate(times_test, np.array(events_test), sample_weights=np.squeeze(times_train)))
+    # print("Training Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+    #       baseline.evaluate(times_train, np.array(events_train), sample_weights=np.squeeze(times_train)))
+    # print("Validation Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+    #       baseline.evaluate(times_val, np.array(events_val), sample_weights=np.squeeze(times_train)))
+    # print("Test Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+    #       baseline.evaluate(times_test, np.array(events_test), sample_weights=np.squeeze(times_train)))
