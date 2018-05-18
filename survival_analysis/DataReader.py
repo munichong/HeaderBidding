@@ -22,9 +22,6 @@ class SurvivalData:
             start_index += batch_size
 
 
-
-
-
 if __name__ == "__main__":
     times, events, sparse_features = pickle.load(open('../Vectors_train.p', 'rb'))
     s = SurvivalData(times, events, sparse_features)

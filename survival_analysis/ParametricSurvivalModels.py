@@ -67,7 +67,7 @@ class ParametricSurvival:
         not_survival = 1 - survival
 
 
-        logloss = tf.losses.log_loss(labels=event, predictions=not_survival, weights=1.0)
+        logloss = tf.losses.log_loss(labels=event, predictions=not_survival, weights=time)
         running_loss, loss_update = tf.metrics.mean(logloss)
         loss_mean = tf.reduce_mean(logloss)
         training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
@@ -76,8 +76,8 @@ class ParametricSurvival:
         not_survival_binary = tf.where(tf.greater_equal(not_survival, 0.5),
                                        tf.ones(tf.shape(not_survival)),
                                        tf.zeros(tf.shape(not_survival)))
-        running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival_binary, weights=None)
-        running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_binary, weights=None)
+        running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival_binary, weights=time)
+        running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_binary, weights=time)
 
         # Isolate the variables stored behind the scenes by the metric operation
         running_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="my_metric")
@@ -150,7 +150,7 @@ if __name__ == "__main__":
                     batch_size = 5000,
                     num_epochs = 20,
                     k = 1,
-                    learning_rate = 0.001 )
+                    learning_rate = 0.005 )
     print('Start training...')
     model.run_graph(num_features,
                     SurvivalData(*pickle.load(open('../Vectors_train.p', 'rb'))),
