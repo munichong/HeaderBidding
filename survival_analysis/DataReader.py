@@ -13,7 +13,7 @@ class SurvivalData:
         self.num_instances = len(self.times)
 
     def make_batch(self, batch_size):
-        shuffle(self.times, self.events, self.sparse_features)
+        self.times, self.events, self.sparse_features = shuffle(self.times, self.events, self.sparse_features)
 
         start_index = 0
         while start_index < self.num_instances:
