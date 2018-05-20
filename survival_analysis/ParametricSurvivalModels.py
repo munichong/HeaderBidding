@@ -20,8 +20,6 @@ class ParametricSurvival:
         feat_x_weights = tf.reduce_sum(tf.multiply(weights, feat_vals), axis=1)
         intercept = tf.Variable(tf.constant(0.1))
 
-        # tf.Assert(tf.reduce_any(tf.is_nan(feat_x_weights)), [tf.is_nan(feat_x_weights)])
-
         return tf.exp(tf.squeeze(feat_x_weights + intercept, [-1]))
 
     def factorization_machines(self):
@@ -62,12 +60,14 @@ class ParametricSurvival:
                             self.distribution.left_censoring(time, Lambda),
                             self.distribution.right_censoring(time, Lambda))
 
-        # tf.Assert(tf.reduce_any(tf.is_nan(survival)), [tf.is_nan(survival)])
-
         not_survival = 1 - survival
+        # not_survival = tf.where(tf.equal(survival, 1), tf.ones(tf.shape(survival)) * 0.000001, 1 - survival)
 
-        logloss = tf.losses.log_loss(labels=event, predictions=not_survival)
-        if sample_weights.lower() == 'time':
+
+        logloss = None
+        if not sample_weights:
+            logloss = tf.losses.log_loss(labels=event, predictions=not_survival)
+        elif sample_weights == 'time':
             logloss = tf.losses.log_loss(labels=event, predictions=not_survival, weights=time)
         running_loss, loss_update = tf.metrics.mean(logloss)
         loss_mean = tf.reduce_mean(logloss)
@@ -78,11 +78,16 @@ class ParametricSurvival:
                                        tf.ones(tf.shape(not_survival)),
                                        tf.zeros(tf.shape(not_survival)))
 
-        running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival)
-        running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_binary)
-        if sample_weights.lower() == 'time':
+
+        running_auc, auc_update = None, None
+        running_acc, auc_update = None, None
+        if not sample_weights:
+            running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival)
+            running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_binary)
+        elif sample_weights == 'time':
             running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival, weights=time)
             running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_binary, weights=time)
+
 
         # Isolate the variables stored behind the scenes by the metric operation
         running_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="my_metric")
@@ -103,21 +108,22 @@ class ParametricSurvival:
                 for duration_batch, event_batch, features_batch in next_train_batch:
                     num_batch += 1
                     sess.run(running_vars_initializer)
-                    _, loss_batch, _, _, Lambda_batch, survival_batch = sess.run([training_op, loss_mean, auc_update, acc_update, Lambda, survival],
+                    _, loss_batch, _, _, Lambda_batch, not_survival_batch = sess.run([training_op, loss_mean,
+                                                                                      auc_update, acc_update, Lambda,
+                                                                                      not_survival],
                                                                    feed_dict={input_vectors: features_batch,
                                                                               time: duration_batch,
                                                                               event: event_batch})
 
-
                     # print(Lambda_batch)
-                    print(survival_batch)
+                    # print(survival_batch)
                     print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
                           (epoch, num_batch, num_total_batches, loss_batch))
 
 
 
                 # evaluation on training data
-                eval_nodes_update = [loss_update, auc_update, acc_update]
+                eval_nodes_update = [loss_update, auc_update, acc_update, not_survival]
                 eval_nodes_metric = [running_loss, running_auc, running_acc]
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
@@ -138,12 +144,23 @@ class ParametricSurvival:
 
 
     def evaluate(self, next_batch, sess, updates, metrics):
+        all_not_survival = []
+        all_events = []
         for duration_batch, event_batch, features_batch in next_batch:
-            _ = sess.run(updates, feed_dict={'input_vectors:0': features_batch,
+            _,_,_,not_survival  = sess.run(updates, feed_dict={'input_vectors:0': features_batch,
                                              'time:0': duration_batch,
                                              'event:0': event_batch})
+            all_not_survival.extend(not_survival)
+            all_events.extend(event_batch)
+        all_not_survival = np.array(all_not_survival, dtype=np.float64)
+        all_not_survival_bin = np.where(all_not_survival>=0.5, 1.0, 0.0)
+        all_events = np.array(all_events, dtype=np.float64)
+        print("SKLEARN: LOGLOSS=%.6f, AUC=%.4f, Accuracy=%.4f" % (log_loss(all_events, all_not_survival),
+                                                                   roc_auc_score(all_events, all_not_survival),
+                                                                   accuracy_score(all_events, all_not_survival_bin)))
 
         return sess.run(metrics)
+
 
 
 if __name__ == "__main__":
@@ -152,7 +169,7 @@ if __name__ == "__main__":
         num_features = int(f.readline())
 
     model = ParametricSurvival(distribution = WeibullDistribution(),
-                    batch_size = 5000,
+                    batch_size = 1000,
                     num_epochs = 20,
                     k = 1,
                     learning_rate = 0.005 )
@@ -161,4 +178,4 @@ if __name__ == "__main__":
                     SurvivalData(*pickle.load(open('../Vectors_train.p', 'rb'))),
                     SurvivalData(*pickle.load(open('../Vectors_val.p', 'rb'))),
                     SurvivalData(*pickle.load(open('../Vectors_test.p', 'rb'))),
-                    sample_weights='time')
+                    sample_weights=None)
