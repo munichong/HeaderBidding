@@ -155,7 +155,7 @@ class ParametricSurvival:
         all_not_survival = np.array(all_not_survival, dtype=np.float64)
         all_not_survival_bin = np.where(all_not_survival>=0.5, 1.0, 0.0)
         all_events = np.array(all_events, dtype=np.float64)
-        print("SKLEARN: LOGLOSS=%.6f, AUC=%.4f, Accuracy=%.4f" % (log_loss(all_events, all_not_survival),
+        print("SKLEARN:\tLOGLOSS = %.6f,\tAUC=%.4f,\tAccuracy=%.4f" % (log_loss(all_events, all_not_survival),
                                                                    roc_auc_score(all_events, all_not_survival),
                                                                    accuracy_score(all_events, all_not_survival_bin)))
 
@@ -172,7 +172,7 @@ if __name__ == "__main__":
                     batch_size = 1000,
                     num_epochs = 20,
                     k = 1,
-                    learning_rate = 0.005 )
+                    learning_rate = 0.01 )
     print('Start training...')
     model.run_graph(num_features,
                     SurvivalData(*pickle.load(open('../Vectors_train.p', 'rb'))),
