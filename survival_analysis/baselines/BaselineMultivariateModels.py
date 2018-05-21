@@ -1,15 +1,18 @@
 import numpy as np, pandas as pd
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
 
 
-class UnivariateLogisticRegression:
+class MultivariateSGDLogisticRegression:
 
     def __init__(self):
-        self.lr = LogisticRegression(penalty='l2', C=1.0)
+        self.lr = SGDClassifier(loss='log', penalty='l2')
 
-    def fit(self, X, y):
-        return self.lr.fit(X, y, sample_weight=np.squeeze(X))
+    def partial_fit(self, training_data):
+        for times_train, events_train, features_train in training_data.make_batch(10000):
+            times_features_train = np.concatenate((np.expand_dims(times_train, axis=1), features_train), axis=1)
+            self.lr.partial_fit(times_features_train, events_train, classes=[0, 1])
+        return self
 
     def predict_proba(self, X):
         return self.lr.predict_proba(X)
@@ -17,13 +20,17 @@ class UnivariateLogisticRegression:
     def predict(self, X):
         return self.lr.predict(X)
 
-    def evaluate(self, X, y_bin_true, sample_weights=None):
-        # print(np.array(X).shape, np.array(y_bin_true).shape)
-        # print(self.lr.classes_)
-        y_proba_pred = self.predict_proba(X)[:,1]
-        # print(y_proba_pred)
-        y_bin_pred = self.predict(X)
-        # print(y_bin_pred)
+    def evaluate(self, data, sample_weights=None):
+        y_proba_pred = []
+        y_bin_pred = []
+        y_bin_true = []
+        for times, events, features in data.make_batch(10000):
+            times_features = np.concatenate((np.expand_dims(times, axis=1), features), axis=1)
+            y_bin_true.extend(events)
+            y_proba_pred.extend(self.predict_proba(times_features)[:,1])
+            y_bin_pred.extend(self.predict(times_features))
+
         return log_loss(y_bin_true, y_proba_pred, sample_weight=sample_weights), \
                roc_auc_score(y_bin_true, y_proba_pred, sample_weight=sample_weights), \
                accuracy_score(y_bin_true, y_bin_pred, sample_weight=sample_weights)
+

@@ -18,7 +18,7 @@ class SurvivalData:
         start_index = 0
         while start_index < self.num_instances:
             full_feat_mat = self.sparse_features.tocsr()[start_index: start_index + batch_size, :].toarray()
-            full_feat_mat = np.zeros(shape=full_feat_mat.shape)
+            # full_feat_mat = np.zeros(shape=full_feat_mat.shape)
             yield self.times[start_index: start_index + batch_size], \
                   self.events[start_index: start_index + batch_size], \
                   full_feat_mat

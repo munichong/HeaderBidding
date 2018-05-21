@@ -90,7 +90,7 @@ class ParametricSurvival:
 
 
         # Isolate the variables stored behind the scenes by the metric operation
-        running_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="my_metric")
+        running_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES)
         # Define initializer to initialize/reset running variables
         running_vars_initializer = tf.variables_initializer(var_list=running_vars)
 
@@ -101,25 +101,24 @@ class ParametricSurvival:
             init.run()
 
             num_total_batches = int(np.ceil(train_data.num_instances / self.batch_size))
-            next_train_batch = train_data.make_batch(self.batch_size)
             for epoch in range(1, self.num_epochs + 1):
+                sess.run(running_vars_initializer)
                 # model training
                 num_batch = 0
-                for duration_batch, event_batch, features_batch in next_train_batch:
+                for time_batch, event_batch, features_batch in train_data.make_batch(self.batch_size):
+                    # print(time_batch)
                     num_batch += 1
-                    sess.run(running_vars_initializer)
                     _, loss_batch, _, _, Lambda_batch, not_survival_batch = sess.run([training_op, loss_mean,
                                                                                       auc_update, acc_update, Lambda,
                                                                                       not_survival],
                                                                    feed_dict={input_vectors: features_batch,
-                                                                              time: duration_batch,
+                                                                              time: time_batch,
                                                                               event: event_batch})
-
                     # print(Lambda_batch)
                     # print(survival_batch)
-                    print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
-                          (epoch, num_batch, num_total_batches, loss_batch))
-
+                    if epoch == 1:
+                        print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
+                              (epoch, num_batch, num_total_batches, loss_batch))
 
 
                 # evaluation on training data
@@ -128,37 +127,58 @@ class ParametricSurvival:
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
                 loss_train, auc_train, acc_train = self.evaluate(train_data.make_batch(self.batch_size),
-                                                                 sess, eval_nodes_update, eval_nodes_metric)
+                                                                 running_vars_initializer, sess,
+                                                                 eval_nodes_update, eval_nodes_metric,
+                                                                 sample_weights)
                 print("*** On Training Set:\tloss = %.6f\tauc = %.4f\taccuracy = %.4f" % (loss_train, auc_train, acc_train))
 
                 # evaluation on validation data
                 loss_val, auc_val, acc_val = self.evaluate(val_data.make_batch(self.batch_size),
-                                                           sess, eval_nodes_update, eval_nodes_metric)
+                                                           running_vars_initializer, sess,
+                                                           eval_nodes_update, eval_nodes_metric,
+                                                           sample_weights)
                 print("*** On Validation Set:\tloss = %.6f\tauc = %.4f\taccuracy = %.4f" % (loss_val, auc_val, acc_val))
 
                 # evaluation on test data
                 loss_test, auc_test, acc_test = self.evaluate(test_data.make_batch(self.batch_size),
-                                                              sess, eval_nodes_update, eval_nodes_metric)
+                                                              running_vars_initializer, sess,
+                                                              eval_nodes_update, eval_nodes_metric,
+                                                              sample_weights)
                 print("*** On Test Set:\tloss = %.6f\tauc = %.4f\taccuracy = %.4f" % (loss_test, auc_test, acc_test))
 
 
 
-    def evaluate(self, next_batch, sess, updates, metrics):
+    def evaluate(self, next_batch, running_init, sess, updates, metrics, sample_weights=None):
         all_not_survival = []
         all_events = []
-        for duration_batch, event_batch, features_batch in next_batch:
-            _,_,_,not_survival  = sess.run(updates, feed_dict={'input_vectors:0': features_batch,
-                                             'time:0': duration_batch,
+        all_times = []
+        sess.run(running_init)
+        for time_batch, event_batch, features_batch in next_batch:
+            _, _, _, not_survival  = sess.run(updates, feed_dict={'input_vectors:0': features_batch,
+                                             'time:0': time_batch,
                                              'event:0': event_batch})
             all_not_survival.extend(not_survival)
             all_events.extend(event_batch)
+            all_times.extend(time_batch)
+
         all_not_survival = np.array(all_not_survival, dtype=np.float64)
         all_not_survival_bin = np.where(all_not_survival>=0.5, 1.0, 0.0)
         all_events = np.array(all_events, dtype=np.float64)
-        print("SKLEARN:\tLOGLOSS = %.6f,\tAUC=%.4f,\tAccuracy=%.4f" % (log_loss(all_events, all_not_survival),
+        print(all_not_survival_bin)
+        print(all_events)
+        print(sum(1 for i in range(len(all_events)) if all_not_survival_bin[i] == all_events[i]))
+        print(len(all_events))
+        if not sample_weights:
+            print("SKLEARN:\tLOGLOSS = %.6f,\tAUC = %.4f,\tAccuracy = %.4f" % (log_loss(all_events, all_not_survival),
                                                                    roc_auc_score(all_events, all_not_survival),
                                                                    accuracy_score(all_events, all_not_survival_bin)))
-
+        elif sample_weights == 'time':
+            print("SKLEARN:\tLOGLOSS = %.6f,\tAUC = %.4f,\tAccuracy = %.4f" % (log_loss(all_events, all_not_survival,
+                                                                                    sample_weight=all_times),
+                                                                   roc_auc_score(all_events, all_not_survival,
+                                                                                 sample_weight=all_times),
+                                                                   accuracy_score(all_events, all_not_survival_bin,
+                                                                                  sample_weight=all_times)))
         return sess.run(metrics)
 
 
