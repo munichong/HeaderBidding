@@ -58,7 +58,7 @@ class Vectorizer:
 
 
     def build_attr2idx(self):
-        self.attr2idx = defaultdict(dict)  # {Attribute1:set(feat1, feat2, ...), Attribute2: set(feat1, ...), ...}
+        self.attr2idx = defaultdict(dict)  # {Attribute1: dict(feat1:i, ...), Attribute2: dict(feat1:i, ...), ...}
         self.num_features = 0
         for attr, feat_counter in self.counter.items():
             for feat in self.counter[attr]:

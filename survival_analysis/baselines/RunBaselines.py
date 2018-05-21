@@ -59,6 +59,6 @@ def run_multivariate_baselines(Baseline):
 
 
 if __name__ == '__main__':
-    # run_univariate_baselines(UnivariateLogisticRegression)
+    run_univariate_baselines(UnivariateLogisticRegression)
     # run_univariate_baselines(KaplanMeier)
-    run_multivariate_baselines(MultivariateSGDLogisticRegression)
+    # run_multivariate_baselines(MultivariateSGDLogisticRegression)
