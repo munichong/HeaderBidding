@@ -6,7 +6,7 @@ from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
 class MultivariateSGDLogisticRegression:
 
     def __init__(self):
-        self.lr = SGDClassifier(loss='log', penalty='l2')
+        self.lr = SGDClassifier(loss='log', penalty='l1')
 
     def partial_fit(self, training_data):
         for times_train, events_train, features_train in training_data.make_batch(10000):
