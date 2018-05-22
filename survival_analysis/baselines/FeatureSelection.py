@@ -1,4 +1,4 @@
-import pickle, numpy as np
+import pickle, numpy as np, math
 from pprint import pprint
 from sklearn.feature_selection import chi2
 from survival_analysis.DataReader import SurvivalData
@@ -25,10 +25,10 @@ def chi2_feature_selection(X, y, attr2idx=None):
             else:
                 field, feat = idx2attr[index]
 
-            if chi != np.nan:
+            if not math.isnan(chi):
                 output.append((field, feat, index, chi, p))
 
-        print(tabulate(sorted(output, key=lambda x : x[3]),
+        print(tabulate(sorted(output, key=lambda x : x[3], reverse=True),
                         headers=['Field', 'Feature', 'index', 'chi2', 'pval'],
                         tablefmt='orgtbl'))
 
