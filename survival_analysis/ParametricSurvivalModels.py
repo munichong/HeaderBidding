@@ -59,7 +59,7 @@ class ParametricSurvival:
         not_survival_proba = self.distribution.left_censoring(time, Lambda)  # the left area
         survival_proba = self.distribution.right_censoring(time, Lambda)  # the right area
 
-        diff = not_survival_proba - survival_proba
+        diff = not_survival_proba
 
 
         logloss = None
@@ -112,7 +112,7 @@ class ParametricSurvival:
                                                                    feed_dict={input_vectors: features_batch,
                                                                               time: time_batch,
                                                                               event: event_batch})
-                    print(Lambda_batch)
+                    # print(Lambda_batch)
                     print(not_survival_batch)
                     print(survival_batch)
                     if epoch == 1:
