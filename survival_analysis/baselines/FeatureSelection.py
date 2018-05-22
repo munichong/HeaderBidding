@@ -28,7 +28,7 @@ def chi2_feature_selection(X, y, attr2idx=None):
             if chi != np.nan:
                 output.append((field, feat, index, chi, p))
 
-        print(tabulate(sorted(output, key=lambda x : x[2]),
+        print(tabulate(sorted(output, key=lambda x : x[3]),
                         headers=['Field', 'Feature', 'index', 'chi2', 'pval'],
                         tablefmt='orgtbl'))
 
