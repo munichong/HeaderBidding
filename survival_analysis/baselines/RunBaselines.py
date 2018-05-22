@@ -50,15 +50,10 @@ def run_multivariate_baselines(Baseline):
     test_data = SurvivalData(*_read_data(TEST_FILE_PATH))
     print("Test Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" % baseline.evaluate(test_data))
 
-    print(baseline.lr.coef_.tolist())
-    print(list(baseline.lr.feature_importances_))
-
-
-
 
 
 
 if __name__ == '__main__':
-    run_univariate_baselines(UnivariateLogisticRegression)
+    # run_univariate_baselines(UnivariateLogisticRegression)
     # run_univariate_baselines(KaplanMeier)
-    # run_multivariate_baselines(MultivariateSGDLogisticRegression)
+    run_multivariate_baselines(MultivariateSGDLogisticRegression)

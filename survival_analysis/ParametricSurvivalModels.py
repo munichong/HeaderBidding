@@ -113,8 +113,8 @@ class ParametricSurvival:
                                                                               time: time_batch,
                                                                               event: event_batch})
                     # print(Lambda_batch)
-                    print(not_survival_batch)
-                    print(survival_batch)
+                    # print(not_survival_batch)
+                    # print(survival_batch)
                     if epoch == 1:
                         print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
                               (epoch, num_batch, num_total_batches, loss_batch))
@@ -163,10 +163,10 @@ class ParametricSurvival:
         all_not_survival = np.array(all_not_survival, dtype=np.float64)
         all_not_survival_bin = np.where(all_not_survival>=0.5, 1.0, 0.0)
         all_events = np.array(all_events, dtype=np.float64)
-        print(all_not_survival_bin)
-        print(all_events)
-        print(sum(1 for i in range(len(all_events)) if all_not_survival_bin[i] == all_events[i]))
-        print(len(all_events))
+        # print(all_not_survival_bin)
+        # print(all_events)
+        # print(sum(1 for i in range(len(all_events)) if all_not_survival_bin[i] == all_events[i]))
+        # print(len(all_events))
         if not sample_weights:
             print("SKLEARN:\tLOGLOSS = %.6f,\tAUC = %.4f,\tAccuracy = %.4f" % (log_loss(all_events, all_not_survival),
                                                                    roc_auc_score(all_events, all_not_survival),
@@ -188,10 +188,10 @@ if __name__ == "__main__":
         num_features = int(f.readline())
 
     model = ParametricSurvival(distribution = WeibullDistribution(),
-                    batch_size = 50000,
-                    num_epochs = 60,
+                    batch_size = 1000,
+                    num_epochs = 10,
                     k = 1,
-                    learning_rate = 0.005 )
+                    learning_rate = 0.01 )
     print('Start training...')
     model.run_graph(num_features,
                     SurvivalData(*pickle.load(open('../Vectors_train.p', 'rb'))),
