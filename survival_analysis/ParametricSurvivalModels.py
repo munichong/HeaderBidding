@@ -187,7 +187,7 @@ if __name__ == "__main__":
 
     model = ParametricSurvival(distribution = WeibullDistribution(),
                     batch_size = 256,
-                    num_epochs = 10,
+                    num_epochs = 30,
                     k = 1,
                     learning_rate = 0.001 )
     print('Start training...')
