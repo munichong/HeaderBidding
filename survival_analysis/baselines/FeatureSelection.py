@@ -2,6 +2,7 @@ import pickle, numpy as np
 from pprint import pprint
 from sklearn.feature_selection import chi2
 from survival_analysis.DataReader import SurvivalData
+from tabulate import tabulate
 
 TRAIN_FILE_PATH = '../../Vectors_train.p'
 VAL_FILE_PATH = '../../Vectors_val.p'
@@ -12,6 +13,7 @@ def _read_data(file_path):
 
 def chi2_feature_selection(X, y, attr2idx=None):
     chi, pval = chi2(X, y)
+    output = []
     if not attr2idx:
         print(sorted(enumerate(zip(chi, pval)), key=lambda x:x[1], reverse=True))
     else:
@@ -20,8 +22,11 @@ def chi2_feature_selection(X, y, attr2idx=None):
             if index not in idx2attr:
                 print("Index %d is not in the dictionary" % index)
                 continue
-            print("%s(%d)\tchi2 = %.4f, pval = %.4f" % (idx2attr[index], index, chi, p))
-
+            output.append((idx2attr[index], index, chi, p))
+            # print("%s(%d)\tchi2 = %.4f, pval = %.4f" % (idx2attr[index], index, chi, p))
+            print(tabulate(output,
+                                   headers=['Field:Feature', 'index', 'chi2', 'pval'],
+                                   tablefmt='orgtbl'))
 
 
 
