@@ -37,4 +37,4 @@ def chi2_feature_selection(X, y):
 if __name__ == '__main__':
     training_data = SurvivalData(*_read_data(TRAIN_FILE_PATH))
     chi2_feature_selection(training_data.sparse_features, training_data.events)
-    chi2_feature_selection(np.expand_dims(training_data.times, -1), training_data.events)
+    # chi2_feature_selection(np.expand_dims(training_data.times, -1), training_data.events)
