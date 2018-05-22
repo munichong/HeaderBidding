@@ -25,9 +25,9 @@ def chi2_feature_selection(X, y, attr2idx=None):
                 continue
             output.append((idx2attr[index], index, chi, p))
             # print("%s(%d)\tchi2 = %.4f, pval = %.4f" % (idx2attr[index], index, chi, p))
-            print(tabulate(output,
-                            headers=['Field:Feature', 'index', 'chi2', 'pval'],
-                            tablefmt='orgtbl'))
+        print(tabulate(output,
+                        headers=['Field:Feature', 'index', 'chi2', 'pval'],
+                        tablefmt='orgtbl'))
 
 
 
