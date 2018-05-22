@@ -56,37 +56,35 @@ class ParametricSurvival:
         if event == 0, right-censoring
         if event == 1, left-censoring 
         '''
-        survival = tf.where(tf.equal(event, 1),
-                            self.distribution.left_censoring(time, Lambda),
-                            self.distribution.right_censoring(time, Lambda))
+        not_survival_proba = self.distribution.left_censoring(time, Lambda)  # the left area
+        survival_proba = self.distribution.right_censoring(time, Lambda)  # the right area
 
-        not_survival = 1 - survival
-        # not_survival = tf.where(tf.equal(survival, 1), tf.ones(tf.shape(survival)) * 0.000001, 1 - survival)
+        diff = not_survival_proba - survival_proba
 
 
         logloss = None
         if not sample_weights:
-            logloss = tf.losses.log_loss(labels=event, predictions=not_survival)
+            logloss = tf.losses.log_loss(labels=event, predictions=diff)
         elif sample_weights == 'time':
-            logloss = tf.losses.log_loss(labels=event, predictions=not_survival, weights=time)
+            logloss = tf.losses.log_loss(labels=event, predictions=diff, weights=time)
         running_loss, loss_update = tf.metrics.mean(logloss)
         loss_mean = tf.reduce_mean(logloss)
         training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
 
 
-        not_survival_binary = tf.where(tf.greater_equal(not_survival, 0.5),
-                                       tf.ones(tf.shape(not_survival)),
-                                       tf.zeros(tf.shape(not_survival)))
+        not_survival_bin = tf.where(tf.greater_equal(not_survival_proba, 0.5),
+                                       tf.ones(tf.shape(not_survival_proba)),
+                                       tf.zeros(tf.shape(not_survival_proba)))
 
 
         running_auc, auc_update = None, None
         running_acc, auc_update = None, None
         if not sample_weights:
-            running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival)
-            running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_binary)
+            running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival_proba)
+            running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_bin)
         elif sample_weights == 'time':
-            running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival, weights=time)
-            running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_binary, weights=time)
+            running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival_proba, weights=time)
+            running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_bin, weights=time)
 
 
         # Isolate the variables stored behind the scenes by the metric operation
@@ -108,21 +106,22 @@ class ParametricSurvival:
                 for time_batch, event_batch, features_batch in train_data.make_batch(self.batch_size):
                     # print(time_batch)
                     num_batch += 1
-                    _, loss_batch, _, _, Lambda_batch, not_survival_batch = sess.run([training_op, loss_mean,
+                    _, loss_batch, _, _, Lambda_batch, not_survival_batch, survival_batch = sess.run([training_op, loss_mean,
                                                                                       auc_update, acc_update, Lambda,
-                                                                                      not_survival],
+                                                                                      not_survival_proba, survival_proba],
                                                                    feed_dict={input_vectors: features_batch,
                                                                               time: time_batch,
                                                                               event: event_batch})
-                    # print(Lambda_batch)
-                    # print(survival_batch)
+                    print(Lambda_batch)
+                    print(not_survival_batch)
+                    print(survival_batch)
                     if epoch == 1:
                         print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
                               (epoch, num_batch, num_total_batches, loss_batch))
 
 
                 # evaluation on training data
-                eval_nodes_update = [loss_update, auc_update, acc_update, not_survival]
+                eval_nodes_update = [loss_update, auc_update, acc_update, not_survival_proba]
                 eval_nodes_metric = [running_loss, running_auc, running_acc]
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
