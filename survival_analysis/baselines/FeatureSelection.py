@@ -21,12 +21,13 @@ def chi2_feature_selection(X, y, attr2idx=None):
         for index, (chi, p) in sorted(enumerate(zip(chi, pval)), key=lambda x: x[1], reverse=True):
             if index not in idx2attr:
                 print("Index %d is not in the dictionary" % index)
+                output.append(('<Header Bid>', index, chi, p))
                 continue
             output.append((idx2attr[index], index, chi, p))
             # print("%s(%d)\tchi2 = %.4f, pval = %.4f" % (idx2attr[index], index, chi, p))
             print(tabulate(output,
-                                   headers=['Field:Feature', 'index', 'chi2', 'pval'],
-                                   tablefmt='orgtbl'))
+                            headers=['Field:Feature', 'index', 'chi2', 'pval'],
+                            tablefmt='orgtbl'))
 
 
 
