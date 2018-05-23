@@ -186,7 +186,7 @@ if __name__ == "__main__":
         num_features = int(f.readline())
 
     model = ParametricSurvival(distribution = WeibullDistribution(),
-                    batch_size = 256,
+                    batch_size = 1024,
                     num_epochs = 30,
                     k = 1,
                     learning_rate = 0.001 )
