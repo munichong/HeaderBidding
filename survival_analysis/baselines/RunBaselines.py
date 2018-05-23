@@ -35,20 +35,23 @@ def run_univariate_baselines(Baseline):
 
 
 
-def run_multivariate_baselines(Baseline):
+def run_multivariate_baselines(Baseline, sample_weights=None):
 
     baseline = Baseline()
     training_data = SurvivalData(*_read_data(TRAIN_FILE_PATH))
     baseline.partial_fit(training_data)
 
     train_data = SurvivalData(*_read_data(TRAIN_FILE_PATH))
-    print("Training Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" % baseline.evaluate(train_data))
+    print("Training Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+          baseline.evaluate(train_data, sample_weights=sample_weights))
 
     val_data = SurvivalData(*_read_data(VAL_FILE_PATH))
-    print("Validation Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" % baseline.evaluate(val_data))
+    print("Validation Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+          baseline.evaluate(val_data, sample_weights=sample_weights))
 
     test_data = SurvivalData(*_read_data(TEST_FILE_PATH))
-    print("Test Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" % baseline.evaluate(test_data))
+    print("Test Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+          baseline.evaluate(test_data, sample_weights=sample_weights))
 
 
 
@@ -56,4 +59,4 @@ def run_multivariate_baselines(Baseline):
 if __name__ == '__main__':
     # run_univariate_baselines(UnivariateLogisticRegression)
     # run_univariate_baselines(KaplanMeier)
-    run_multivariate_baselines(MultivariateSGDLogisticRegression)
+    run_multivariate_baselines(MultivariateSGDLogisticRegression, sample_weights='time')

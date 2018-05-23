@@ -4,10 +4,11 @@ import scipy.integrate as integrate
 
 class WeibullDistribution:
 
-    def __init__(self, shape=1, threshold=0.05):
+    def __init__(self, shape=0.5, threshold=0.05):
         '''
 
         :param shape: The Weibull distribution with shape = 1 is the exponential distribution
+                      A value of shape > 1 indicates that the failure rate increases over time.
         :param threshold:
         '''
         self.shape = shape
