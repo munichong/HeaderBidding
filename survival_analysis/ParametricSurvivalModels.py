@@ -57,14 +57,22 @@ class ParametricSurvival:
         if event == 1, left-censoring 
         '''
         not_survival_proba = self.distribution.left_censoring(time, Lambda)  # the left area
-        # survival_proba = self.distribution.right_censoring(time, Lambda)  # the right area
+        survival_proba = self.distribution.right_censoring(time, Lambda)  # the right area
+
+        event_pred = tf.stack([survival_proba, not_survival_proba], axis=1)
+
+
+        # predictions = tf.where(tf.equal(event, 1),
+        #                     self.distribution.left_censoring(time, Lambda),
+        #                     self.distribution.right_censoring(time, Lambda))
+        # neg_log_likelihood = -1 * tf.reduce_sum(tf.log(predictions))
 
 
         logloss = None
         if not sample_weights:
-            logloss = tf.losses.log_loss(labels=event, predictions=not_survival_proba)
+            logloss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=event, predictions=event_pred)
         elif sample_weights == 'time':
-            logloss = tf.losses.log_loss(labels=event, predictions=not_survival_proba, weights=time)
+            logloss = tf.nn.weighted_cross_entropy_with_logits(labels=event, predictions=event_pred, pos_weight=time)
         running_loss, loss_update = tf.metrics.mean(logloss)
         loss_mean = tf.reduce_mean(logloss)
         training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
@@ -104,15 +112,15 @@ class ParametricSurvival:
                 for time_batch, event_batch, features_batch in train_data.make_batch(self.batch_size):
                     # print(time_batch)
                     num_batch += 1
-                    _, loss_batch, _, _, Lambda_batch, not_survival_batch = sess.run([training_op, loss_mean,
+                    _, loss_batch, _, _, Lambda_batch, event_pred_batch = sess.run([training_op, loss_mean,
                                                                                       auc_update, acc_update, Lambda,
-                                                                                      not_survival_proba],
+                                                                                    event_pred],
                                                                    feed_dict={input_vectors: features_batch,
                                                                               time: time_batch,
                                                                               event: event_batch})
                     # print(Lambda_batch)
                     # print(not_survival_batch)
-                    # print(survival_batch)
+                    print(event_pred_batch)
                     if epoch == 1:
                         print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
                               (epoch, num_batch, num_total_batches, loss_batch))
@@ -186,7 +194,7 @@ if __name__ == "__main__":
         num_features = int(f.readline())
 
     model = ParametricSurvival(distribution = WeibullDistribution(),
-                    batch_size = 256,
+                    batch_size = 1024,
                     num_epochs = 30,
                     k = 1,
                     learning_rate = 0.001 )
