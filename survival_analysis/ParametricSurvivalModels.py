@@ -189,10 +189,10 @@ if __name__ == "__main__":
         num_features = int(f.readline())
 
     model = ParametricSurvival(distribution = WeibullDistribution(),
-                    batch_size = 1024,
-                    num_epochs = 30,
+                    batch_size = 512,
+                    num_epochs = 20,
                     k = 1,
-                    learning_rate = 0.001 )
+                    learning_rate = 0.005 )
     print('Start training...')
     model.run_graph(num_features,
                     SurvivalData(*pickle.load(open('../Vectors_train.p', 'rb'))),
