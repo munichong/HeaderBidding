@@ -71,7 +71,7 @@ class ParametricSurvival:
                                     tf.zeros(tf.shape(not_survival_proba)))
 
         running_auc, auc_update = None, None
-        running_acc, auc_update = None, None
+        running_acc, acc_update = None, None
         if not sample_weights:
             running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival_proba)
             running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_bin)
