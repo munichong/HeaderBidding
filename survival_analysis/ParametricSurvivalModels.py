@@ -70,13 +70,10 @@ class ParametricSurvival:
                                     tf.ones(tf.shape(not_survival_proba)),
                                     tf.zeros(tf.shape(not_survival_proba)))
 
-        running_auc, auc_update = None, None
-        running_acc, auc_update = None, None
+        running_acc, acc_update = None, None
         if not sample_weights:
-            running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival_proba)
             running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_bin)
         elif sample_weights == 'time':
-            running_auc, auc_update = tf.metrics.auc(labels=event, predictions=not_survival_proba, weights=time)
             running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_bin, weights=time)
 
         logloss = None
@@ -109,7 +106,7 @@ class ParametricSurvival:
                     # print(time_batch)
                     num_batch += 1
                     _, loss_batch, _, _, Lambda_batch = sess.run([training_op, loss_mean,
-                                                                                      auc_update, acc_update, Lambda,
+                                                                  acc_update, Lambda,
                                                                                     ],
                                                                    feed_dict={input_vectors: features_batch,
                                                                               time: time_batch,
@@ -122,29 +119,29 @@ class ParametricSurvival:
 
 
                 # evaluation on training data
-                eval_nodes_update = [loss_update, auc_update, acc_update, not_survival_proba]
-                eval_nodes_metric = [running_loss, running_auc, running_acc]
+                eval_nodes_update = [loss_update, acc_update, not_survival_proba]
+                eval_nodes_metric = [running_loss, running_acc]
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
                 loss_train, auc_train, acc_train = self.evaluate(train_data.make_batch(self.batch_size),
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
                                                                  sample_weights)
-                print("*** On Training Set:\tloss = %.6f\tauc = %.4f\taccuracy = %.4f" % (loss_train, auc_train, acc_train))
+                print("*** On Training Set:\tloss = %.6f\taccuracy = %.4f" % (loss_train, acc_train))
 
                 # evaluation on validation data
                 loss_val, auc_val, acc_val = self.evaluate(val_data.make_batch(self.batch_size),
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
-                print("*** On Validation Set:\tloss = %.6f\tauc = %.4f\taccuracy = %.4f" % (loss_val, auc_val, acc_val))
+                print("*** On Validation Set:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
 
                 # evaluation on test data
                 loss_test, auc_test, acc_test = self.evaluate(test_data.make_batch(self.batch_size),
                                                               running_vars_initializer, sess,
                                                               eval_nodes_update, eval_nodes_metric,
                                                               sample_weights)
-                print("*** On Test Set:\tloss = %.6f\tauc = %.4f\taccuracy = %.4f" % (loss_test, auc_test, acc_test))
+                print("*** On Test Set:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
 
 
 
