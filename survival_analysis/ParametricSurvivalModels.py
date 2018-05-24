@@ -47,23 +47,23 @@ class ParametricSurvival:
         if self.k == 1:
             ''' treat the input_vectors as masks '''
             ''' input_vectors do NOT need to be binary vectors '''
-            Lambda = self.regression(input_vectors, embeddings)
+            scale = self.regression(input_vectors, embeddings)
 
         else:
-            Lambda = self.factorization_machines()
+            scale = self.factorization_machines()
 
         ''' 
         if event == 0, right-censoring
         if event == 1, left-censoring 
         '''
-        not_survival_proba = self.distribution.left_censoring(time, Lambda)  # the left area
-        # survival_proba = self.distribution.right_censoring(time, Lambda)  # the right area
+        not_survival_proba = self.distribution.left_censoring(time, scale)  # the left area
+        # survival_proba = self.distribution.right_censoring(time, scale)  # the right area
 
         # event_pred = tf.stack([survival_proba, not_survival_proba], axis=1)
 
         # predictions = tf.where(tf.equal(event, 1),
-        #                     self.distribution.left_censoring(time, Lambda),
-        #                     self.distribution.right_censoring(time, Lambda))
+        #                     self.distribution.left_censoring(time, scale),
+        #                     self.distribution.right_censoring(time, scale))
         # neg_log_likelihood = -1 * tf.reduce_sum(tf.log(predictions))
 
         not_survival_bin = tf.where(tf.greater_equal(not_survival_proba, 0.5),
@@ -106,7 +106,7 @@ class ParametricSurvival:
                     # print(time_batch)
                     num_batch += 1
                     _, loss_batch, _, _, Lambda_batch = sess.run([training_op, loss_mean,
-                                                                  acc_update, Lambda,
+                                                                  acc_update, scale,
                                                                                     ],
                                                                    feed_dict={input_vectors: features_batch,
                                                                               time: time_batch,

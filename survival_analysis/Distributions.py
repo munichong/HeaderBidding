@@ -14,8 +14,8 @@ class WeibullDistribution:
         self.shape = shape
         self.threshold = threshold
 
-    def left_censoring(self, time, Lambda):
-        return 1 - self.right_censoring(time, Lambda)
+    def left_censoring(self, time, scale):
+        return 1 - self.right_censoring(time, scale)
 
-    def right_censoring(self, time, Lambda):
-        return tf.exp(-1 * Lambda * time ** self.shape)
+    def right_censoring(self, time, scale):
+        return tf.exp(-1 * scale * time ** self.shape)
