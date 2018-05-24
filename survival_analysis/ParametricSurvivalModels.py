@@ -105,13 +105,13 @@ class ParametricSurvival:
                 for time_batch, event_batch, features_batch in train_data.make_batch(self.batch_size):
                     # print(time_batch)
                     num_batch += 1
-                    _, loss_batch, _, _, Lambda_batch = sess.run([training_op, loss_mean,
+                    _, loss_batch, _, scale_batch = sess.run([training_op, loss_mean,
                                                                   acc_update, scale,
                                                                                     ],
                                                                    feed_dict={input_vectors: features_batch,
                                                                               time: time_batch,
                                                                               event: event_batch})
-                    # print(Lambda_batch)
+                    # print(scale_batch)
                     # print(not_survival_batch)
                     if epoch == 1:
                         print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
