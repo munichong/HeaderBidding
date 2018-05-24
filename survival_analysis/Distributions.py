@@ -20,7 +20,7 @@ class WeibullDistribution:
         return tf.exp(-1 * scale * time ** self.shape)
 
 
-class LogLogistic:
+class LogLogisticDistribution:
     def __init__(self, shape=1):
         self.shape = shape
 
