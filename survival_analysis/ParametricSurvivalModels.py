@@ -151,7 +151,7 @@ class ParametricSurvival:
         all_times = []
         sess.run(running_init)
         for time_batch, event_batch, features_batch in next_batch:
-            _, _, _, not_survival  = sess.run(updates, feed_dict={'input_vectors:0': features_batch,
+            _, _, not_survival  = sess.run(updates, feed_dict={'input_vectors:0': features_batch,
                                              'time:0': time_batch,
                                              'event:0': event_batch})
             all_not_survival.extend(not_survival)
