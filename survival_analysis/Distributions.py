@@ -21,7 +21,7 @@ class WeibullDistribution:
 
 
 class LogLogisticDistribution:
-    def __init__(self, shape=1):
+    def __init__(self, shape=1.5):
         self.shape = shape
 
     def left_censoring(self, time, scale):
