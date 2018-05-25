@@ -123,21 +123,21 @@ class ParametricSurvival:
                 eval_nodes_metric = [running_loss, running_acc]
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
-                loss_train, auc_train, acc_train = self.evaluate(train_data.make_batch(self.batch_size),
+                loss_train, acc_train = self.evaluate(train_data.make_batch(self.batch_size),
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
                                                                  sample_weights)
                 print("*** On Training Set:\tloss = %.6f\taccuracy = %.4f" % (loss_train, acc_train))
 
                 # evaluation on validation data
-                loss_val, auc_val, acc_val = self.evaluate(val_data.make_batch(self.batch_size),
+                loss_val, acc_val = self.evaluate(val_data.make_batch(self.batch_size),
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
                 print("*** On Validation Set:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
 
                 # evaluation on test data
-                loss_test, auc_test, acc_test = self.evaluate(test_data.make_batch(self.batch_size),
+                loss_test, acc_test = self.evaluate(test_data.make_batch(self.batch_size),
                                                               running_vars_initializer, sess,
                                                               eval_nodes_update, eval_nodes_metric,
                                                               sample_weights)
