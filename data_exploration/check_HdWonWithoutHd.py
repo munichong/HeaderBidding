@@ -18,6 +18,7 @@ for doc in col.find():
     if any(k in HEADER_BIDDING_KEYS for k, v in doc['CustomTargeting'].items()):
         continue
     n_without_hd += 1
+    print(doc)
 
 print(n_without_hd, n_total_hdwon, n_without_hd / n_total_hdwon)
 
