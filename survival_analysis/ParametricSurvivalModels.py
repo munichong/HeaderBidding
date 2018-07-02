@@ -20,10 +20,18 @@ class ParametricSurvival:
         feat_x_weights = tf.reduce_sum(tf.multiply(weights, feat_vals), axis=1)
         intercept = tf.Variable(tf.constant(0.1))
 
-        return tf.exp(tf.squeeze(feat_x_weights + intercept, [-1]))
+        return tf.squeeze(feat_x_weights + intercept, [-1])
 
-    def factorization_machines(self):
-        pass
+    def factorization_machines(self, predictors, weights_one, weights_two):
+        feat_vals = tf.tile(tf.expand_dims(predictors, axis=-1), [1, 1, 1])
+        filtered_embeddings = tf.multiply(weights_two, feat_vals)
+        fe0 = tf.expand_dims(filtered_embeddings, 0)
+        fe1 = tf.expand_dims(filtered_embeddings, 1)
+        pairs_mulsum_full = tf.reduce_sum(tf.reshape(tf.multiply(fe0, fe1), [-1, self.k]))
+        pairs_mulsum_self = tf.reduce_sum(filtered_embeddings * filtered_embeddings)
+        pairs_mulsum_noself = pairs_mulsum_full - pairs_mulsum_self
+        return pairs_mulsum_noself + self.regression(predictors, weights_one)
+
 
     def run_graph(self, num_features, train_data, val_data, test_data, sample_weights=None):
         '''
@@ -41,16 +49,17 @@ class ParametricSurvival:
         time = tf.placeholder(tf.float32, shape=[None], name='time')
         event = tf.placeholder(tf.int32, shape=[None], name='event')
 
-        embeddings = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.02))
-
 
         if self.k == 1:
             ''' treat the input_vectors as masks '''
             ''' input_vectors do NOT need to be binary vectors '''
-            scale = self.regression(input_vectors, embeddings)
+            embeddings = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.02))
+            scale = tf.exp(self.regression(input_vectors, embeddings))
 
         else:
-            scale = self.factorization_machines()
+            embeddings_one = tf.Variable(tf.truncated_normal(shape=(num_features, 1), mean=0.0, stddev=0.02))
+            embeddings_two = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.02))
+            scale = tf.exp(self.factorization_machines(input_vectors, embeddings_one, embeddings_two))
 
         ''' 
         if event == 0, right-censoring
