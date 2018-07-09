@@ -27,13 +27,15 @@ class SurvivalData:
     def make_sparse_batch(self, batch_size):
         self.times, self.events, self.sparse_features = shuffle(self.times, self.events, self.sparse_features)
         max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common()[0][1]
+        print(max_nonzero_len)
 
         start_index = 0
         while start_index < self.num_instances:
             batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :]
             feat_indices_batch = np.split(batch_feat_mat.indices, batch_feat_mat.indptr)[1:-1]
+            # print(feat_indices_batch)
             feat_indices_batch = np.apply_along_axis(
-                lambda row : np.pad(row, (0, max_nonzero_len), 'constant', constant_values=0), 1, feat_indices_batch)
+                lambda row : np.pad(row, (0, max_nonzero_len), 'constant', constant_values=0), 0, feat_indices_batch)
             feat_values_batch = np.split(batch_feat_mat.data, batch_feat_mat.indptr)[1:-1]
 
             yield self.times[start_index: start_index + batch_size], \
@@ -47,9 +49,11 @@ class SurvivalData:
 if __name__ == "__main__":
     times, events, sparse_features = pickle.load(open('../Vectors_train.p', 'rb'))
     s = SurvivalData(times, events, sparse_features)
-    for t, e, sf in s.make_sparse_batch(10):
+    for t, e, ind, val in s.make_sparse_batch(10):
         print(t)
         print(e)
-        print(sf)
+        print(ind)
+        print(val)
+        print()
 
 
