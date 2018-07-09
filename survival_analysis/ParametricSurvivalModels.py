@@ -111,7 +111,7 @@ class ParametricSurvival:
                 sess.run(running_vars_initializer)
                 # model training
                 num_batch = 0
-                for time_batch, event_batch, features_batch in train_data.make_batch(self.batch_size):
+                for time_batch, event_batch, features_batch in train_data.make_dense_batch(self.batch_size):
                     # print(time_batch)
                     num_batch += 1
                     _, loss_batch, _, scale_batch = sess.run([training_op, loss_mean,

@@ -2,7 +2,7 @@ import csv, pickle
 from pprint import pprint
 import tensorflow as tf
 import numpy as np
-from scipy.sparse import coo_matrix
+from collections import Counter
 from sklearn.utils import shuffle
 
 
@@ -12,23 +12,42 @@ class SurvivalData:
         self.times, self.events, self.sparse_features = times, events, sparse_features.tocsr()
         self.num_instances = len(self.times)
 
-    def make_batch(self, batch_size):
+    def make_dense_batch(self, batch_size):
         self.times, self.events, self.sparse_features = shuffle(self.times, self.events, self.sparse_features)
 
         start_index = 0
         while start_index < self.num_instances:
-            full_feat_mat = self.sparse_features[start_index: start_index + batch_size, :].toarray()
+            batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :].toarray()
             # full_feat_mat = np.zeros(shape=full_feat_mat.shape)
             yield self.times[start_index: start_index + batch_size], \
                   self.events[start_index: start_index + batch_size], \
-                  full_feat_mat
+                  batch_feat_mat
             start_index += batch_size
+
+    def make_sparse_batch(self, batch_size):
+        self.times, self.events, self.sparse_features = shuffle(self.times, self.events, self.sparse_features)
+        max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common()[0][1]
+
+        start_index = 0
+        while start_index < self.num_instances:
+            batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :]
+            feat_indices_batch = np.split(batch_feat_mat.indices, batch_feat_mat.indptr)[1:-1]
+            feat_indices_batch = np.apply_along_axis(
+                lambda row : np.pad(row, (0, max_nonzero_len), 'constant', constant_values=0), 1, feat_indices_batch)
+            feat_values_batch = np.split(batch_feat_mat.data, batch_feat_mat.indptr)[1:-1]
+
+            yield self.times[start_index: start_index + batch_size], \
+                  self.events[start_index: start_index + batch_size], \
+                  feat_indices_batch, \
+                  feat_values_batch
+            start_index += batch_size
+
 
 
 if __name__ == "__main__":
     times, events, sparse_features = pickle.load(open('../Vectors_train.p', 'rb'))
     s = SurvivalData(times, events, sparse_features)
-    for t, e, sf in s.make_batch(10):
+    for t, e, sf in s.make_sparse_batch(10):
         print(t)
         print(e)
         print(sf)
