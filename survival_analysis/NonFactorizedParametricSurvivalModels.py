@@ -7,11 +7,10 @@ from survival_analysis.Distributions import WeibullDistribution, LogLogisticDist
 
 class ParametricSurvival:
 
-    def __init__(self, distribution, batch_size, num_epochs, k=1, learning_rate=0.01):
+    def __init__(self, distribution, batch_size, num_epochs, learning_rate=0.01):
         self.distribution = distribution
         self.batch_size = batch_size
         self.num_epochs = num_epochs
-        self.k = k
         self.learning_rate = learning_rate
 
 
@@ -50,16 +49,15 @@ class ParametricSurvival:
         event = tf.placeholder(tf.int32, shape=[None], name='event')
 
 
-        if self.k == 1:
-            ''' treat the input_vectors as masks '''
-            ''' input_vectors do NOT need to be binary vectors '''
-            embeddings = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.02))
-            scale = tf.exp(self.regression(input_vectors, embeddings))
+        ''' treat the input_vectors as masks '''
+        ''' input_vectors do NOT need to be binary vectors '''
+        embeddings = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.02))
+        scale = tf.exp(self.regression(input_vectors, embeddings))
 
-        else:
-            embeddings_one = tf.Variable(tf.truncated_normal(shape=(num_features, 1), mean=0.0, stddev=0.02))
-            embeddings_two = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.02))
-            scale = tf.exp(self.factorization_machines(input_vectors, embeddings_one, embeddings_two))
+        # else:
+        #     embeddings_one = tf.Variable(tf.truncated_normal(shape=(num_features, 1), mean=0.0, stddev=0.02))
+        #     embeddings_two = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.02))
+        #     scale = tf.exp(self.factorization_machines(input_vectors, embeddings_one, embeddings_two))
 
         ''' 
         if event == 0, right-censoring
@@ -132,21 +130,21 @@ class ParametricSurvival:
                 eval_nodes_metric = [running_loss, running_acc]
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
-                loss_train, acc_train = self.evaluate(train_data.make_batch(self.batch_size),
+                loss_train, acc_train = self.evaluate(train_data.make_dense_batch(self.batch_size),
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
                                                                  sample_weights)
                 print("*** On Training Set:\tloss = %.6f\taccuracy = %.4f" % (loss_train, acc_train))
 
                 # evaluation on validation data
-                loss_val, acc_val = self.evaluate(val_data.make_batch(self.batch_size),
+                loss_val, acc_val = self.evaluate(val_data.make_dense_batch(self.batch_size),
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
                 print("*** On Validation Set:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
 
                 # evaluation on test data
-                loss_test, acc_test = self.evaluate(test_data.make_batch(self.batch_size),
+                loss_test, acc_test = self.evaluate(test_data.make_dense_batch(self.batch_size),
                                                               running_vars_initializer, sess,
                                                               eval_nodes_update, eval_nodes_metric,
                                                               sample_weights)
@@ -197,7 +195,6 @@ if __name__ == "__main__":
     model = ParametricSurvival(distribution = LogLogisticDistribution(),
                     batch_size = 512,
                     num_epochs = 20,
-                    k = 1,
                     learning_rate = 0.005 )
     print('Start training...')
     model.run_graph(num_features,
