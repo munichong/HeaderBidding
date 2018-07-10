@@ -26,17 +26,17 @@ class SurvivalData:
 
     def make_sparse_batch(self, batch_size):
         self.times, self.events, self.sparse_features = shuffle(self.times, self.events, self.sparse_features)
-        max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common()[0][1]
-        print(max_nonzero_len)
+        max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]
+        # print(max_nonzero_len)  # 103
 
         start_index = 0
         while start_index < self.num_instances:
             batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :]
-            feat_indices_batch = np.split(batch_feat_mat.indices, batch_feat_mat.indptr)[1:-1]
+            feat_indices_batch = [list(row) + [0.0] * (max_nonzero_len - len(row))
+                                  for row in np.split(batch_feat_mat.indices, batch_feat_mat.indptr)[1:-1]]
             # print(feat_indices_batch)
-            feat_indices_batch = np.apply_along_axis(
-                lambda row : np.pad(row, (0, max_nonzero_len), 'constant', constant_values=0), 0, feat_indices_batch)
-            feat_values_batch = np.split(batch_feat_mat.data, batch_feat_mat.indptr)[1:-1]
+            feat_values_batch = [list(row) + [0.0] * (max_nonzero_len - len(row))
+                                  for row in np.split(batch_feat_mat.data, batch_feat_mat.indptr)[1:-1]]
 
             yield self.times[start_index: start_index + batch_size], \
                   self.events[start_index: start_index + batch_size], \
@@ -55,5 +55,6 @@ if __name__ == "__main__":
         print(ind)
         print(val)
         print()
+
 
 
