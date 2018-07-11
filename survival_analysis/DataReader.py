@@ -41,7 +41,8 @@ class SurvivalData:
             yield self.times[start_index: start_index + batch_size], \
                   self.events[start_index: start_index + batch_size], \
                   feat_indices_batch, \
-                  feat_values_batch
+                  feat_values_batch, \
+                  max_nonzero_len
             start_index += batch_size
 
 
@@ -49,7 +50,7 @@ class SurvivalData:
 if __name__ == "__main__":
     times, events, sparse_features = pickle.load(open('../Vectors_train.p', 'rb'))
     s = SurvivalData(times, events, sparse_features)
-    for t, e, ind, val in s.make_sparse_batch(10):
+    for t, e, ind, val, max_nonzero_len in s.make_sparse_batch(10):
         print(t)
         print(e)
         print(ind)
