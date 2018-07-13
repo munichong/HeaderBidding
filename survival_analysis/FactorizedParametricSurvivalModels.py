@@ -5,7 +5,7 @@ from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
 from survival_analysis.DataReader import SurvivalData
 from survival_analysis.Distributions import WeibullDistribution, LogLogisticDistribution
 
-class ParametricSurvival:
+class FactorizedParametricSurvival:
 
     def __init__(self, distribution, batch_size, num_epochs, k, learning_rate=0.001,
                  lambda1=0.0, lambda2=0.0):
@@ -97,8 +97,7 @@ class ParametricSurvival:
         l2_norm = tf.reduce_sum(
             tf.add(
                 tf.multiply(lambda_linear, tf.pow(embeddings_linear, 2)),
-                tf.multiply(lambda_factorized, tf.pow(tf.reduce_mean(embeddings_factorized, axis=-1), 2))
-
+                tf.reduce_sum(tf.multiply(lambda_factorized, tf.pow(embeddings_factorized, 2)), axis=-1)
             )
         )
 
@@ -134,9 +133,13 @@ class ParametricSurvival:
                                              'event:0': event_batch})
 
                     # print()
+                    # print('linear_term')
                     # print(linear_term_batch)
+                    # print('factorized_term')
                     # print(factorized_term_batch)
+                    # print('scale')
                     # print(scale_batch)
+                    # print('not_survival_prob')
                     # print(prob_batch)
 
                     if epoch == 1:
@@ -210,11 +213,11 @@ if __name__ == "__main__":
         ''' The first line is the total number of unique features '''
         num_features = int(f.readline())
 
-    model = ParametricSurvival(distribution = WeibullDistribution(),
-                    batch_size = 512,
+    model = FactorizedParametricSurvival(distribution = WeibullDistribution(),
+                    batch_size = 128,
                     num_epochs = 20,
-                    k = 5,
-                    learning_rate=0.001,
+                    k = 10,
+                    learning_rate=0.05,
                     lambda1=0.0,
                     lambda2=0.0
                     )
