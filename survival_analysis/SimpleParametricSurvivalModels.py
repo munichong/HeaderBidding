@@ -41,7 +41,7 @@ class ParametricSurvival:
 
         ''' treat the input_vectors as masks '''
         ''' input_vectors do NOT need to be binary vectors '''
-        embeddings = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.02))
+        embeddings = tf.Variable(tf.truncated_normal(shape=(num_features, 1), mean=0.0, stddev=0.02))
         scale = tf.exp(self.regression(input_vectors, embeddings))
 
         # else:
@@ -182,7 +182,7 @@ if __name__ == "__main__":
         ''' The first line is the total number of unique features '''
         num_features = int(f.readline())
 
-    model = ParametricSurvival(distribution = LogLogisticDistribution(),
+    model = ParametricSurvival(distribution = WeibullDistribution(),
                     batch_size = 512,
                     num_epochs = 20,
                     learning_rate = 0.005 )

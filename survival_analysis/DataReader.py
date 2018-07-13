@@ -34,6 +34,7 @@ class SurvivalData:
             batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :]
             feat_indices_batch = [list(row) + [0.0] * (max_nonzero_len - len(row))
                                   for row in np.split(batch_feat_mat.indices, batch_feat_mat.indptr)[1:-1]]
+
             # print(feat_indices_batch)
             feat_values_batch = [list(row) + [0.0] * (max_nonzero_len - len(row))
                                   for row in np.split(batch_feat_mat.data, batch_feat_mat.indptr)[1:-1]]
