@@ -17,8 +17,8 @@ class FactorizedParametricSurvival:
         self.lambda1 = lambda1
         self.lambda2 = lambda2
 
-    def linear_function(self, weights_linear):
-        return tf.reduce_sum(weights_linear, axis=-1)
+    def linear_function(self, weights_linear, intercept):
+        return tf.reduce_sum(weights_linear, axis=-1) + intercept
 
     def factorization_machines(self, weights_factorized):
         dot_product_res = tf.matmul(weights_factorized, tf.transpose(weights_factorized, perm=[0,2,1]))
@@ -52,11 +52,11 @@ class FactorizedParametricSurvival:
 
         w0 = tf.Variable(0.0)
 
-        filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values + w0
+        filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
         filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
                                   tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
 
-        linear_term = self.linear_function(filtered_embeddings_linear)
+        linear_term = self.linear_function(filtered_embeddings_linear, w0)
         factorized_term = self.factorization_machines(filtered_embeddings_factorized)
         scale = tf.sigmoid(linear_term + factorized_term)
 
