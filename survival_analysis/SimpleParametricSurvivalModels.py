@@ -1,5 +1,5 @@
 import numpy as np, pickle
-
+import csv
 import tensorflow as tf
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
 from survival_analysis.DataReader import SurvivalData
@@ -94,6 +94,8 @@ class SimpleParametricSurvival:
         with tf.Session() as sess:
             init.run()
 
+            max_loss_val = None
+
             num_total_batches = int(np.ceil(train_data.num_instances / self.batch_size))
             for epoch in range(1, self.num_epochs + 1):
                 sess.run(running_vars_initializer)
@@ -120,25 +122,39 @@ class SimpleParametricSurvival:
                 eval_nodes_metric = [running_loss, running_acc]
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
-                loss_train, acc_train = self.evaluate(train_data.make_dense_batch(self.batch_size),
+                print('*** On Training Set:')
+                (loss_train, acc_train), _, _, _ = self.evaluate(train_data.make_dense_batch(self.batch_size),
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
                                                                  sample_weights)
-                print("*** On Training Set:\tloss = %.6f\taccuracy = %.4f" % (loss_train, acc_train))
+                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_train, acc_train))
 
                 # evaluation on validation data
-                loss_val, acc_val = self.evaluate(val_data.make_dense_batch(self.batch_size),
+                print('*** On Validation Set:')
+                (loss_val, acc_val), not_survival_val, events_val, times_val = self.evaluate(val_data.make_dense_batch(self.batch_size),
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
-                print("*** On Validation Set:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
+                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
 
                 # evaluation on test data
-                loss_test, acc_test = self.evaluate(test_data.make_dense_batch(self.batch_size),
+                print('*** On Test Set:')
+                (loss_test, acc_test), _, _, _ = self.evaluate(test_data.make_dense_batch(self.batch_size),
                                                               running_vars_initializer, sess,
                                                               eval_nodes_update, eval_nodes_metric,
                                                               sample_weights)
-                print("*** On Test Set:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
+                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
+
+
+                if max_loss_val is None or loss_val < max_loss_val:
+                    max_loss_val = loss_val
+                    with open('../all_predictions_simple.csv', 'w', newline="\n") as outfile:
+                        csv_writer = csv.writer(outfile)
+                        csv_writer.writerow(('NOT_SURV_PROB', 'EVENTS', 'TIMES'))
+                        for p, e, t in zip(not_survival_val, events_val, times_val):
+                            csv_writer.writerow((p, e, t))
+                    print('All predictions are outputted for error analysis')
+
 
 
 
@@ -148,7 +164,8 @@ class SimpleParametricSurvival:
         all_times = []
         sess.run(running_init)
         for time_batch, event_batch, features_batch in next_batch:
-            _, _, not_survival  = sess.run(updates, feed_dict={'input_vectors:0': features_batch,
+            _, _, not_survival  = sess.run(updates, feed_dict={
+                                             'input_vectors:0': features_batch,
                                              'time:0': time_batch,
                                              'event:0': event_batch})
             all_not_survival.extend(not_survival)
@@ -173,7 +190,7 @@ class SimpleParametricSurvival:
                                                                                  sample_weight=all_times),
                                                                    accuracy_score(all_events, all_not_survival_bin,
                                                                                   sample_weight=all_times)))
-        return sess.run(metrics)
+        return sess.run(metrics), all_not_survival, all_events, all_times
 
 
 
@@ -185,7 +202,7 @@ if __name__ == "__main__":
     model = SimpleParametricSurvival(distribution = WeibullDistribution(),
                     batch_size = 512,
                     num_epochs = 20,
-                    learning_rate = 0.005 )
+                    learning_rate = 0.001 )
     print('Start training...')
     model.run_graph(num_features,
                     SurvivalData(*pickle.load(open('../Vectors_train.p', 'rb'))),

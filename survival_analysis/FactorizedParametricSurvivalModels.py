@@ -152,25 +152,28 @@ class FactorizedParametricSurvival:
                 eval_nodes_metric = [running_loss, running_acc]
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
+                print('*** On Training Set:')
                 loss_train, acc_train = self.evaluate(train_data.make_sparse_batch(self.batch_size),
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
                                                                  sample_weights)
-                print("*** On Training Set:\tloss = %.6f\taccuracy = %.4f" % (loss_train, acc_train))
+                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_train, acc_train))
 
                 # evaluation on validation data
+                print('*** On Validation Set:')
                 loss_val, acc_val = self.evaluate(val_data.make_sparse_batch(self.batch_size),
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
-                print("*** On Validation Set:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
+                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
 
                 # evaluation on test data
+                print('*** On Test Set:')
                 loss_test, acc_test = self.evaluate(test_data.make_sparse_batch(self.batch_size),
                                                               running_vars_initializer, sess,
                                                               eval_nodes_update, eval_nodes_metric,
                                                               sample_weights)
-                print("*** On Test Set:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
+                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
 
 
 
@@ -216,8 +219,8 @@ if __name__ == "__main__":
     model = FactorizedParametricSurvival(distribution = WeibullDistribution(),
                     batch_size = 128,
                     num_epochs = 20,
-                    k = 10,
-                    learning_rate=0.05,
+                    k = 5,
+                    learning_rate=0.001,
                     lambda1=0.0,
                     lambda2=0.0
                     )
