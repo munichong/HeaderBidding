@@ -1,4 +1,4 @@
-import numpy as np, pickle
+import numpy as np, pickle, csv
 
 import tensorflow as tf
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
@@ -17,7 +17,8 @@ class FactorizedParametricSurvival:
         self.lambda1 = lambda1
         self.lambda2 = lambda2
 
-    def linear_function(self, weights_linear, intercept):
+    def linear_function(self, weights_linear):
+        intercept = tf.Variable(0.1)
         return tf.reduce_sum(weights_linear, axis=-1) + intercept
 
     def factorization_machines(self, weights_factorized):
@@ -45,20 +46,19 @@ class FactorizedParametricSurvival:
         event = tf.placeholder(tf.int32, shape=[None], name='event')
 
         # shape: (batch_size, max_nonzero_len)
-        embeddings_linear = tf.Variable(tf.zeros((num_features,)))
+        embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=0.1))
             # tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=0.01))
         # shape: (batch_size, max_nonzero_len, k)
         embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.1))
 
-        w0 = tf.Variable(0.0)
 
         filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
         filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
                                   tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
 
-        linear_term = self.linear_function(filtered_embeddings_linear, w0)
+        linear_term = self.linear_function(filtered_embeddings_linear)
         factorized_term = self.factorization_machines(filtered_embeddings_factorized)
-        scale = tf.sigmoid(linear_term + factorized_term)
+        scale = tf.nn.softplus(linear_term + factorized_term)
 
         ''' 
         if event == 0, right-censoring
@@ -116,6 +116,8 @@ class FactorizedParametricSurvival:
         with tf.Session() as sess:
             init.run()
 
+            max_loss_val = None
+
             num_total_batches = int(np.ceil(train_data.num_instances / self.batch_size))
             for epoch in range(1, self.num_epochs + 1):
                 sess.run(running_vars_initializer)
@@ -153,7 +155,7 @@ class FactorizedParametricSurvival:
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
                 print('*** On Training Set:')
-                loss_train, acc_train = self.evaluate(train_data.make_sparse_batch(self.batch_size),
+                (loss_train, acc_train), _, _, _ = self.evaluate(train_data.make_sparse_batch(self.batch_size),
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
                                                                  sample_weights)
@@ -161,7 +163,7 @@ class FactorizedParametricSurvival:
 
                 # evaluation on validation data
                 print('*** On Validation Set:')
-                loss_val, acc_val = self.evaluate(val_data.make_sparse_batch(self.batch_size),
+                (loss_val, acc_val), not_survival_val, events_val, times_val = self.evaluate(val_data.make_sparse_batch(self.batch_size),
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
@@ -169,11 +171,20 @@ class FactorizedParametricSurvival:
 
                 # evaluation on test data
                 print('*** On Test Set:')
-                loss_test, acc_test = self.evaluate(test_data.make_sparse_batch(self.batch_size),
+                (loss_test, acc_test), _, _, _ = self.evaluate(test_data.make_sparse_batch(self.batch_size),
                                                               running_vars_initializer, sess,
                                                               eval_nodes_update, eval_nodes_metric,
                                                               sample_weights)
                 print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
+
+                if max_loss_val is None or loss_val < max_loss_val:
+                    max_loss_val = loss_val
+                    with open('../all_predictions_factorized.csv', 'w', newline="\n") as outfile:
+                        csv_writer = csv.writer(outfile)
+                        csv_writer.writerow(('NOT_SURV_PROB', 'EVENTS', 'TIMES'))
+                        for p, e, t in zip(not_survival_val, events_val, times_val):
+                            csv_writer.writerow((p, e, t))
+                    print('All predictions are outputted for error analysis')
 
 
 
@@ -197,17 +208,14 @@ class FactorizedParametricSurvival:
         all_events = np.array(all_events, dtype=np.float64)
 
         if not sample_weights:
-            print("SKLEARN:\tLOGLOSS = %.6f,\tAUC = %.4f,\tAccuracy = %.4f" % (log_loss(all_events, all_not_survival),
-                                                                   roc_auc_score(all_events, all_not_survival),
+            print("SKLEARN:\tLOGLOSS = %.6f,\tAccuracy = %.4f" % (log_loss(all_events, all_not_survival),
                                                                    accuracy_score(all_events, all_not_survival_bin)))
         elif sample_weights == 'time':
-            print("SKLEARN:\tLOGLOSS = %.6f,\tAUC = %.4f,\tAccuracy = %.4f" % (log_loss(all_events, all_not_survival,
+            print("SKLEARN:\tLOGLOSS = %.6f,\tAccuracy = %.4f" % (log_loss(all_events, all_not_survival,
                                                                                     sample_weight=all_times),
-                                                                   roc_auc_score(all_events, all_not_survival,
-                                                                                 sample_weight=all_times),
                                                                    accuracy_score(all_events, all_not_survival_bin,
                                                                                   sample_weight=all_times)))
-        return sess.run(metrics)
+        return sess.run(metrics), all_not_survival, all_events, all_times
 
 
 
@@ -219,8 +227,8 @@ if __name__ == "__main__":
     model = FactorizedParametricSurvival(distribution = WeibullDistribution(),
                     batch_size = 128,
                     num_epochs = 20,
-                    k = 5,
-                    learning_rate=0.001,
+                    k = 30,
+                    learning_rate=0.0001,
                     lambda1=0.0,
                     lambda2=0.0
                     )

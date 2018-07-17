@@ -42,7 +42,7 @@ class SimpleParametricSurvival:
         ''' treat the input_vectors as masks '''
         ''' input_vectors do NOT need to be binary vectors '''
         embeddings = tf.Variable(tf.truncated_normal(shape=(num_features, 1), mean=0.0, stddev=0.02))
-        scale = tf.exp(self.regression(input_vectors, embeddings))
+        scale = tf.nn.softplus(self.regression(input_vectors, embeddings))
 
         # else:
         #     embeddings_one = tf.Variable(tf.truncated_normal(shape=(num_features, 1), mean=0.0, stddev=0.02))
@@ -180,14 +180,11 @@ class SimpleParametricSurvival:
         # print(sum(1 for i in range(len(all_events)) if all_not_survival_bin[i] == all_events[i]))
         # print(len(all_events))
         if not sample_weights:
-            print("SKLEARN:\tLOGLOSS = %.6f,\tAUC = %.4f,\tAccuracy = %.4f" % (log_loss(all_events, all_not_survival),
-                                                                   roc_auc_score(all_events, all_not_survival),
+            print("SKLEARN:\tLOGLOSS = %.6f,\tAccuracy = %.4f" % (log_loss(all_events, all_not_survival),
                                                                    accuracy_score(all_events, all_not_survival_bin)))
         elif sample_weights == 'time':
-            print("SKLEARN:\tLOGLOSS = %.6f,\tAUC = %.4f,\tAccuracy = %.4f" % (log_loss(all_events, all_not_survival,
+            print("SKLEARN:\tLOGLOSS = %.6f,\tAccuracy = %.4f" % (log_loss(all_events, all_not_survival,
                                                                                     sample_weight=all_times),
-                                                                   roc_auc_score(all_events, all_not_survival,
-                                                                                 sample_weight=all_times),
                                                                    accuracy_score(all_events, all_not_survival_bin,
                                                                                   sample_weight=all_times)))
         return sess.run(metrics), all_not_survival, all_events, all_times
