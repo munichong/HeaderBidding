@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-import scipy.integrate as integrate
+
 
 class WeibullDistribution:
     def __init__(self, shape=0.4, threshold=0.05):
@@ -29,3 +29,14 @@ class LogLogisticDistribution:
 
     def right_censoring(self, time, scale):
         return 1 / (scale * time ** self.shape + 1)
+
+
+class GammaDistribution:
+    def __init__(self, shape=1.5):
+        self.shape = shape
+
+    def left_censoring(self, time, scale):
+        return 1- self.right_censoring(time, scale)
+
+    def right_censoring(self, time, scale):
+        return -1 * self.shape * tf.igammac(self.shape, scale * time)
