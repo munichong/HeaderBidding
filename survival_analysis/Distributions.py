@@ -32,11 +32,11 @@ class LogLogisticDistribution:
 
 
 class GammaDistribution:
-    def __init__(self, shape=1.5):
+    def __init__(self, shape=1.0):
         self.shape = shape
 
     def left_censoring(self, time, scale):
         return 1- self.right_censoring(time, scale)
 
     def right_censoring(self, time, scale):
-        return -1 * self.shape * tf.igammac(self.shape, scale * time)
+        return self.shape * tf.igammac(self.shape, scale * time)
