@@ -3,7 +3,7 @@ import numpy as np, pickle, csv
 import tensorflow as tf
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
 from survival_analysis.DataReader import SurvivalData
-from survival_analysis.Distributions import WeibullDistribution, LogLogisticDistribution
+from survival_analysis import Distributions
 
 class FactorizedParametricSurvival:
 
@@ -224,7 +224,7 @@ if __name__ == "__main__":
         ''' The first line is the total number of unique features '''
         num_features = int(f.readline())
 
-    model = FactorizedParametricSurvival(distribution = WeibullDistribution(),
+    model = FactorizedParametricSurvival(distribution = Distributions.WeibullDistribution(),
                     batch_size = 128,
                     num_epochs = 20,
                     k = 30,
