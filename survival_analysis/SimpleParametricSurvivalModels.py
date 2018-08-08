@@ -1,5 +1,6 @@
 import numpy as np, pickle
 import csv
+import json
 import tensorflow as tf
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
 from survival_analysis.DataReader import SurvivalData
@@ -148,12 +149,21 @@ class SimpleParametricSurvival:
 
                 if max_loss_val is None or loss_val < max_loss_val:
                     max_loss_val = loss_val
+                    # Store prediction results
                     with open('../all_predictions_simple.csv', 'w', newline="\n") as outfile:
                         csv_writer = csv.writer(outfile)
                         csv_writer.writerow(('NOT_SURV_PROB', 'EVENTS', 'TIMES'))
                         for p, e, t in zip(not_survival_val, events_val, times_val):
                             csv_writer.writerow((p, e, t))
                     print('All predictions are outputted for error analysis')
+
+                    # Store parameters
+                    params = {'embeddings': embeddings.eval(),
+                              'shape': self.distribution.shape,
+                              'distribution_name': type(self.distribution).__name__}
+                    with open('params_simple.json', 'w') as fp:
+                        json.dump(params, fp)
+
 
 
 
