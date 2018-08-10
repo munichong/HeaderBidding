@@ -209,7 +209,7 @@ if __name__ == "__main__":
     model = SimpleParametricSurvival(distribution = Distributions.WeibullDistribution(),
                     batch_size = 64,
                     num_epochs = 20,
-                    learning_rate = 0.001 )
+                    learning_rate = 0.0001 )
     print('Start training...')
     model.run_graph(num_features,
                     SurvivalData(*pickle.load(open('../Vectors_train.p', 'rb'))),
