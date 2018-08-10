@@ -43,11 +43,11 @@ class GammaDistribution:
 
 
 class GumbelDistribution:
-    def __init__(self, location=1.0):
-        self.location = location
+    def __init__(self, shape=1.0):
+        self.shape = shape  # this param is actually called "location" in Statistics
 
     def left_censoring(self, time, scale):
-        return tf.exp(-1 * tf.exp(time - self.location) / scale)
+        return tf.exp(-1 * tf.exp(time - self.shape) / scale)
 
     def right_censoring(self, time, scale):
         return 1 - self.left_censoring(time, scale)

@@ -17,8 +17,7 @@ class FactorizedParametricSurvival:
         self.lambda1 = lambda1
         self.lambda2 = lambda2
 
-    def linear_function(self, weights_linear):
-        intercept = tf.Variable(0.1)
+    def linear_function(self, weights_linear, intercept):
         return tf.reduce_sum(weights_linear, axis=-1) + intercept
 
     def factorization_machines(self, weights_factorized):
@@ -56,7 +55,8 @@ class FactorizedParametricSurvival:
         filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
                                   tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
 
-        linear_term = self.linear_function(filtered_embeddings_linear)
+        intercept = tf.Variable(0.1)
+        linear_term = self.linear_function(filtered_embeddings_linear, intercept)
         factorized_term = self.factorization_machines(filtered_embeddings_factorized)
         scale = tf.nn.softplus(linear_term + factorized_term)
 
@@ -185,6 +185,14 @@ class FactorizedParametricSurvival:
                         for p, e, t in zip(not_survival_val, events_val, times_val):
                             csv_writer.writerow((p, e, t))
                     print('All predictions are outputted for error analysis')
+
+                    # Store parameters
+                    params = {'embeddings_linear': embeddings_linear.eval(),
+                              'intercept': intercept.eval(),
+                              'embeddings_factorized': embeddings_factorized.eval(),
+                              'shape': self.distribution.shape,
+                              'distribution_name': type(self.distribution).__name__}
+                    pickle.dump(params, open('../params_factorized.pkl', 'wb'))
 
 
 

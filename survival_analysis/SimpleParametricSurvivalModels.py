@@ -15,10 +15,9 @@ class SimpleParametricSurvival:
         self.learning_rate = learning_rate
 
 
-    def regression(self, predictors, weights):
+    def regression(self, predictors, weights, intercept):
         feat_vals = tf.tile(tf.expand_dims(predictors, axis=-1), [1, 1, 1])
         feat_x_weights = tf.reduce_sum(tf.multiply(weights, feat_vals), axis=1)
-        intercept = tf.Variable(tf.constant(0.1))
 
         return tf.squeeze(feat_x_weights + intercept, [-1])
 
@@ -43,7 +42,8 @@ class SimpleParametricSurvival:
         ''' treat the input_vectors as masks '''
         ''' input_vectors do NOT need to be binary vectors '''
         embeddings = tf.Variable(tf.truncated_normal(shape=(num_features, 1), mean=0.0, stddev=0.02))
-        scale = tf.nn.softplus(self.regression(input_vectors, embeddings))
+        intercept = tf.Variable(0.1)
+        scale = tf.nn.softplus(self.regression(input_vectors, embeddings, intercept))
 
         # else:
         #     embeddings_one = tf.Variable(tf.truncated_normal(shape=(num_features, 1), mean=0.0, stddev=0.02))
@@ -159,10 +159,10 @@ class SimpleParametricSurvival:
 
                     # Store parameters
                     params = {'embeddings': embeddings.eval(),
+                              'intercept': intercept.eval(),
                               'shape': self.distribution.shape,
                               'distribution_name': type(self.distribution).__name__}
-                    with open('params_simple.json', 'w') as fp:
-                        json.dump(params, fp)
+                    pickle.dump(params, open('../params_simple.pkl', 'wb'))
 
 
 
@@ -207,7 +207,7 @@ if __name__ == "__main__":
         num_features = int(f.readline())
 
     model = SimpleParametricSurvival(distribution = Distributions.WeibullDistribution(),
-                    batch_size = 512,
+                    batch_size = 64,
                     num_epochs = 20,
                     learning_rate = 0.001 )
     print('Start training...')
