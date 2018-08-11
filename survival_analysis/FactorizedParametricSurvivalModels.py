@@ -45,10 +45,10 @@ class FactorizedParametricSurvival:
         event = tf.placeholder(tf.int32, shape=[None], name='event')
 
         # shape: (batch_size, max_nonzero_len)
-        embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=0.1))
+        embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=0.0))
             # tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=0.01))
         # shape: (batch_size, max_nonzero_len, k)
-        embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.1))
+        embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.0))
 
 
         filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
