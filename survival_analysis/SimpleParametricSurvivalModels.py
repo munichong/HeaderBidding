@@ -83,6 +83,11 @@ class SimpleParametricSurvival:
         loss_mean = tf.reduce_mean(logloss)
         training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
 
+        ### gradient clipping
+        # optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        # gradients, variables = zip(*optimizer.compute_gradients(loss_mean))
+        # gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
+        # training_op = optimizer.apply_gradients(zip(gradients, variables))
 
         # Isolate the variables stored behind the scenes by the metric operation
         running_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES)
@@ -206,8 +211,8 @@ if __name__ == "__main__":
         ''' The first line is the total number of unique features '''
         num_features = int(f.readline())
 
-    model = SimpleParametricSurvival(distribution = Distributions.WeibullDistribution(),
-                    batch_size = 64,
+    model = SimpleParametricSurvival(distribution = Distributions.GumbelDistribution(),
+                    batch_size = 8,
                     num_epochs = 20,
                     learning_rate = 0.0001 )
     print('Start training...')
