@@ -84,12 +84,12 @@ class FactorizedParametricSurvival:
         elif sample_weights == 'time':
             running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_bin, weights=time)
 
-        logloss = None
+        batch_loss = None
         if not sample_weights:
-            logloss = tf.losses.log_loss(labels=event, predictions=not_survival_proba)
+            batch_loss = tf.losses.log_loss(labels=event, predictions=not_survival_proba)
         elif sample_weights == 'time':
-            logloss = tf.losses.log_loss(labels=event, predictions=not_survival_proba, weights=time)
-        running_loss, loss_update = tf.metrics.mean(logloss)
+            batch_loss = tf.losses.log_loss(labels=event, predictions=not_survival_proba, weights=time)
+        running_loss, loss_update = tf.metrics.mean(batch_loss)
 
         # L2 regularized sum of squares loss function over the embeddings
         lambda_linear = tf.constant(self.lambda1)

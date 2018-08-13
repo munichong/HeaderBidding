@@ -74,13 +74,13 @@ class SimpleParametricSurvival:
         elif sample_weights == 'time':
             running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_bin, weights=time)
 
-        logloss = None
+        batch_loss = None
         if not sample_weights:
-            logloss = tf.losses.log_loss(labels=event, predictions=not_survival_proba)
+            batch_loss = tf.losses.log_loss(labels=event, predictions=not_survival_proba)
         elif sample_weights == 'time':
-            logloss = tf.losses.log_loss(labels=event, predictions=not_survival_proba, weights=time)
-        running_loss, loss_update = tf.metrics.mean(logloss)
-        loss_mean = tf.reduce_mean(logloss)
+            batch_loss = tf.losses.log_loss(labels=event, predictions=not_survival_proba, weights=time)
+        running_loss, loss_update = tf.metrics.mean(batch_loss)
+        loss_mean = tf.reduce_mean(batch_loss)
         training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
 
         ### gradient clipping
@@ -211,8 +211,8 @@ if __name__ == "__main__":
         ''' The first line is the total number of unique features '''
         num_features = int(f.readline())
 
-    model = SimpleParametricSurvival(distribution = Distributions.GumbelDistribution(),
-                    batch_size = 8,
+    model = SimpleParametricSurvival(distribution = Distributions.WeibullDistribution(),
+                    batch_size = 128,
                     num_epochs = 20,
                     learning_rate = 0.0001 )
     print('Start training...')
