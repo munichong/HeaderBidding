@@ -26,10 +26,10 @@ class LogLogisticDistribution:
         self.shape = shape
 
     def left_censoring(self, time, scale):
-        return 1 / (scale * time ** self.shape + 1)
+        return 1 - self.left_censoring(time, scale)
 
     def right_censoring(self, time, scale):
-        return 1 - self.right_censoring(time, scale)
+        return 1 / (scale * time ** self.shape + 1)
 
 
 # class GammaDistribution:
