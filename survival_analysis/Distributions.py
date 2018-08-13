@@ -17,6 +17,7 @@ class WeibullDistribution:
         return 1 - self.right_censoring(time, scale)
 
     def right_censoring(self, time, scale):
+        # with time increases, the return value should decrease
         return tf.exp(-1 * scale * time ** self.shape)
 
 
@@ -25,10 +26,10 @@ class LogLogisticDistribution:
         self.shape = shape
 
     def left_censoring(self, time, scale):
-        return 1 - self.right_censoring(time, scale)
+        return 1 / (scale * time ** self.shape + 1)
 
     def right_censoring(self, time, scale):
-        return 1 / (scale * time ** self.shape + 1)
+        return 1 - self.right_censoring(time, scale)
 
 
 # class GammaDistribution:
@@ -46,8 +47,19 @@ class GumbelDistribution:
     def __init__(self, shape=0.01):
         self.shape = shape  # this param is actually called "location" in Statistics
 
+    def double_exp_part(self, time, scale):
+        return tf.exp(-1 * tf.exp((self.shape - time) / scale))
+
     def left_censoring(self, time, scale):
-        return tf.exp(-1 * tf.exp((self.shape - time) / scale)) - tf.exp(-1 * tf.exp(self.shape / scale))
+        return self.double_exp_part(time, scale) - self.double_exp_part(0.0, scale)
 
     def right_censoring(self, time, scale):
-        return 1 - tf.exp(-1 * tf.exp((self.shape - time) / scale))
+        return 1 - self.double_exp_part(time, scale)
+
+class ExponentialDistribution:
+    def left_censoring(self, time, scale):
+        return 1 - self.right_censoring(time, scale)
+
+    def right_censoring(self, time, scale):
+        return tf.exp(-1 * scale * time)
+
