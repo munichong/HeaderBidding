@@ -101,7 +101,7 @@ class FactorizedParametricSurvival:
             )
         )
 
-        loss_mean = tf.reduce_mean(logloss) + l2_norm
+        loss_mean = tf.reduce_mean(batch_loss) + l2_norm
         training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
 
         ### gradient clipping
