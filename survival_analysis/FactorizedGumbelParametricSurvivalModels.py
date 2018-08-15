@@ -42,22 +42,21 @@ class FactorizedGumbelParametricSurvival:
         feature_values = tf.placeholder(tf.float32, name='feature_values')
 
         time = tf.placeholder(tf.float32, shape=[None], name='time')
-        event = tf.placeholder(tf.int32, shape=[None], name='event')
+        event = tf.placeholder(tf.float32, shape=[None], name='event')
 
         # shape: (batch_size, max_nonzero_len)
-        embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=0.0))
-            # tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=0.01))
+        embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=0.000001))
         # shape: (batch_size, max_nonzero_len, k)
-        embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.0))
+        embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.000001))
 
 
         filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
         filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
                                   tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
 
-        intercept = tf.Variable(0.1)
+        intercept = tf.Variable(0.00001)
         linear_term = self.linear_function(filtered_embeddings_linear, intercept)
-        factorized_term = self.factorization_machines(filtered_embeddings_factorized)
+        factorized_term = self.factorization_machines(filtered_embeddings_factorized) *0.0
         scale = tf.nn.softplus(linear_term + factorized_term)
 
         ''' 
@@ -66,7 +65,7 @@ class FactorizedGumbelParametricSurvival:
         '''
         not_survival_exp = self.distribution.left_censoring(time, scale)  # the left area
 
-        event_ln = -1 * tf.log(event)
+        event_ln = -1 * tf.log(tf.maximum(event, 0.000001))
 
 
         # running_acc, acc_update = None, None
@@ -77,10 +76,10 @@ class FactorizedGumbelParametricSurvival:
 
         batch_loss = None
         if not sample_weights:
-            batch_loss = tf.losses.log_loss(labels=event_ln, predictions=not_survival_exp)
+            batch_loss = tf.losses.mean_squared_error(labels=event_ln, predictions=not_survival_exp)
         elif sample_weights == 'time':
-            batch_loss = tf.losses.log_loss(labels=event_ln, predictions=not_survival_exp, weights=time)
-        running_loss, loss_update = tf.metrics.mean(batch_loss)
+            batch_loss = tf.losses.mean_squared_error(labels=event_ln, predictions=not_survival_exp, weights=time)
+        running_loss, loss_update = tf.metrics.mean_squared_error(labels=event_ln, predictions=not_survival_exp)
 
         # L2 regularized sum of squares loss function over the embeddings
         lambda_linear = tf.constant(self.lambda1)
@@ -123,13 +122,15 @@ class FactorizedGumbelParametricSurvival:
                 for time_batch, event_batch, featidx_batch, featval_batch, max_nz_len in train_data.make_sparse_batch(self.batch_size):
                     # print(time_batch)
                     num_batch += 1
-                    _, loss_batch = sess.run([training_op, loss_mean],
+                    _, loss_batch, s, not_surv_exp = sess.run([training_op, loss_mean, scale, not_survival_exp],
                                                                    feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
                                              'time:0': time_batch,
                                              'event:0': event_batch})
 
+                    # print(s)
+                    print(not_surv_exp)
 
                     if epoch == 1:
                         print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
@@ -142,31 +143,31 @@ class FactorizedGumbelParametricSurvival:
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
                 print('*** On Training Set:')
-                (loss_train), _, _, _ = self.evaluate(train_data.make_sparse_batch(self.batch_size),
+                [loss_train], _, _, _ = self.evaluate(train_data.make_sparse_batch(self.batch_size),
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
                                                                  sample_weights)
-                print("TENSORFLOW:\tloss = %.6f" % (loss_train))
+                print("TENSORFLOW:\tloss = %.6f" % loss_train)
 
                 # evaluation on validation data
                 print('*** On Validation Set:')
-                (loss_val), not_survival_val, events_val, times_val = self.evaluate(val_data.make_sparse_batch(self.batch_size),
+                [loss_val], not_survival_val, events_val, times_val = self.evaluate(val_data.make_sparse_batch(self.batch_size),
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
-                print("TENSORFLOW:\tloss = %.6f" % (loss_val))
+                print("TENSORFLOW:\tloss = %.6f" % loss_val)
 
                 # evaluation on test data
                 print('*** On Test Set:')
-                (loss_test), _, _, _ = self.evaluate(test_data.make_sparse_batch(self.batch_size),
+                [loss_test], _, _, _ = self.evaluate(test_data.make_sparse_batch(self.batch_size),
                                                               running_vars_initializer, sess,
                                                               eval_nodes_update, eval_nodes_metric,
                                                               sample_weights)
-                print("TENSORFLOW:\tloss = %.6f" % (loss_test))
+                print("TENSORFLOW:\tloss = %.6f" % loss_test)
 
                 if max_loss_val is None or loss_val < max_loss_val:
                     max_loss_val = loss_val
-                    with open('../all_predictions_factorized.csv', 'w', newline="\n") as outfile:
+                    with open('../all_predictions_factorizedgumbel.csv', 'w', newline="\n") as outfile:
                         csv_writer = csv.writer(outfile)
                         csv_writer.writerow(('NOT_SURV_PROB', 'EVENTS', 'TIMES'))
                         for p, e, t in zip(not_survival_val, events_val, times_val):
@@ -177,9 +178,8 @@ class FactorizedGumbelParametricSurvival:
                     params = {'embeddings_linear': embeddings_linear.eval(),
                               'intercept': intercept.eval(),
                               'embeddings_factorized': embeddings_factorized.eval(),
-                              'shape': self.distribution.shape,
                               'distribution_name': type(self.distribution).__name__}
-                    pickle.dump(params, open('../params_factorized.pkl', 'wb'))
+                    pickle.dump(params, open('../params_factorizedgumbel.pkl', 'wb'))
 
 
 
@@ -194,13 +194,16 @@ class FactorizedGumbelParametricSurvival:
                                              'feature_values:0': featval_batch,
                                              'time:0': time_batch,
                                              'event:0': event_batch})
-            all_not_survival.extend(not_surv_exp)
+            all_not_survival.extend(np.exp(-1 * not_surv_exp))
             all_events.extend(event_batch)
             all_times.extend(time_batch)
 
         all_not_survival = np.array(all_not_survival, dtype=np.float64)
         all_not_survival_bin = np.where(all_not_survival>=0.5, 1.0, 0.0)
         all_events = np.array(all_events, dtype=np.float64)
+
+        # print(all_not_survival)
+        # print(all_events)
 
         if not sample_weights:
             print("SKLEARN:\tLOGLOSS = %.6f,\tAccuracy = %.4f" % (log_loss(all_events, all_not_survival),
@@ -219,11 +222,14 @@ if __name__ == "__main__":
         ''' The first line is the total number of unique features '''
         num_features = int(f.readline())
 
+    # a = pickle.load(open('../params_factorizedgumbel.pkl', 'rb'))
+    # print(a)
+
     model = FactorizedGumbelParametricSurvival(distribution = Distributions.ExponentialDistribution(),
-                    batch_size = 128,
+                    batch_size = 512,
                     num_epochs = 20,
                     k = 30,
-                    learning_rate=0.0001,
+                    learning_rate=0.001,
                     lambda1=0.0,
                     lambda2=0.0
                     )
