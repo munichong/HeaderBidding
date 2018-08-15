@@ -56,7 +56,7 @@ class FactorizedGumbelParametricSurvival:
 
         intercept = tf.Variable(0.00001)
         linear_term = self.linear_function(filtered_embeddings_linear, intercept)
-        factorized_term = self.factorization_machines(filtered_embeddings_factorized) *0.0
+        factorized_term = self.factorization_machines(filtered_embeddings_factorized)
         scale = tf.nn.softplus(linear_term + factorized_term)
 
         ''' 
