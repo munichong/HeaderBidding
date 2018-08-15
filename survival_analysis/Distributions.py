@@ -22,11 +22,11 @@ class WeibullDistribution:
 
 
 class LogLogisticDistribution:
-    def __init__(self, shape=1.5):
+    def __init__(self, shape=0.5):
         self.shape = shape
 
     def left_censoring(self, time, scale):
-        return 1 - self.left_censoring(time, scale)
+        return 1 - self.right_censoring(time, scale)
 
     def right_censoring(self, time, scale):
         return 1 / (scale * time ** self.shape + 1)
@@ -44,7 +44,7 @@ class LogLogisticDistribution:
 
 
 class GumbelDistribution:
-    def __init__(self, shape=0.01):
+    def __init__(self, shape=0.001):
         self.shape = shape  # this param is actually called "location" in Statistics
 
     def double_exp_part(self, time, scale):

@@ -45,17 +45,17 @@ class FactorizedParametricSurvival:
         event = tf.placeholder(tf.int32, shape=[None], name='event')
 
         # shape: (batch_size, max_nonzero_len)
-        embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=0.01))
+        embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=1e-5))
             # tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=0.01))
         # shape: (batch_size, max_nonzero_len, k)
-        embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=0.01))
+        embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=1e-5))
 
 
         filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
         filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
                                   tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
 
-        intercept = tf.Variable(0.1)
+        intercept = tf.Variable(1e-5)
         linear_term = self.linear_function(filtered_embeddings_linear, intercept)
         factorized_term = self.factorization_machines(filtered_embeddings_factorized)
         scale = tf.nn.softplus(linear_term + factorized_term)
@@ -65,14 +65,7 @@ class FactorizedParametricSurvival:
         if event == 1, left-censoring 
         '''
         not_survival_proba = self.distribution.left_censoring(time, scale)  # the left area
-        # survival_proba = self.distribution.right_censoring(time, scale)  # the right area
 
-        # event_pred = tf.stack([survival_proba, not_survival_proba], axis=1)
-
-        # predictions = tf.where(tf.equal(event, 1),
-        #                     self.distribution.left_censoring(time, scale),
-        #                     self.distribution.right_censoring(time, scale))
-        # neg_log_likelihood = -1 * tf.reduce_sum(tf.log(predictions))
 
         not_survival_bin = tf.where(tf.greater_equal(not_survival_proba, 0.5),
                                     tf.ones(tf.shape(not_survival_proba)),
@@ -102,13 +95,13 @@ class FactorizedParametricSurvival:
         )
 
         loss_mean = tf.reduce_mean(batch_loss) + l2_norm
-        training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
+        # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
 
         ### gradient clipping
-        # optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-        # gradients, variables = zip(*optimizer.compute_gradients(loss_mean))
-        # gradients, _ = tf.clip_by_global_norm(gradients, 5.0)
-        # training_op = optimizer.apply_gradients(zip(gradients, variables))
+        optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        gradients, variables = zip(*optimizer.compute_gradients(loss_mean))
+        gradients_clipped, _ = tf.clip_by_global_norm(gradients, 5.0)
+        training_op = optimizer.apply_gradients(zip(gradients_clipped, variables))
 
 
         # Isolate the variables stored behind the scenes by the metric operation
@@ -132,8 +125,8 @@ class FactorizedParametricSurvival:
                 for time_batch, event_batch, featidx_batch, featval_batch, max_nz_len in train_data.make_sparse_batch(self.batch_size):
                     # print(time_batch)
                     num_batch += 1
-                    _, loss_batch, _, scale_batch, linear_term_batch, factorized_term_batch, prob_batch = sess.run([training_op, loss_mean,
-                                                                  acc_update, scale, linear_term, factorized_term, not_survival_proba],
+                    _, loss_batch, _, scale_batch, gradients_batch, gradients_clipped_batch, prob_batch = sess.run([training_op, loss_mean,
+                                                                  acc_update, scale, gradients, gradients_clipped, not_survival_proba],
                                                                    feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
@@ -147,8 +140,13 @@ class FactorizedParametricSurvival:
                     # print(factorized_term_batch)
                     # print('scale')
                     # print(scale_batch)
+                    # print(event_batch)
                     # print('not_survival_prob')
                     # print(prob_batch)
+                    # print("gradients")
+                    # print(gradients_batch)
+                    # print("gradients_clipped")
+                    # print(gradients_clipped_batch)
 
                     if epoch == 1:
                         print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
@@ -239,10 +237,10 @@ if __name__ == "__main__":
         num_features = int(f.readline())
 
     model = FactorizedParametricSurvival(distribution = Distributions.WeibullDistribution(),
-                    batch_size = 128,
+                    batch_size = 2048,
                     num_epochs = 20,
                     k = 30,
-                    learning_rate=0.0001,
+                    learning_rate=1e-3,
                     lambda1=0.0,
                     lambda2=0.0
                     )
