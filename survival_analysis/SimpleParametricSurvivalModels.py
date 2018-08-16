@@ -153,6 +153,7 @@ class SimpleParametricSurvival:
 
 
                 if max_loss_val is None or loss_val < max_loss_val:
+                    print("*** GET THE LOWEST VAL LOSS ***")
                     max_loss_val = loss_val
                     # Store prediction results
                     with open('../all_predictions_simple.csv', 'w', newline="\n") as outfile:
