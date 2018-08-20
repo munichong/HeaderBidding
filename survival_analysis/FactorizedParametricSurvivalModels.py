@@ -182,6 +182,7 @@ class FactorizedParametricSurvival:
                 print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
 
                 if max_loss_val is None or loss_val < max_loss_val:
+                    print("!!! GET THE LOWEST VAL LOSS !!!")
                     max_loss_val = loss_val
                     with open('../all_predictions_factorized.csv', 'w', newline="\n") as outfile:
                         csv_writer = csv.writer(outfile)
@@ -236,11 +237,11 @@ if __name__ == "__main__":
         ''' The first line is the total number of unique features '''
         num_features = int(f.readline())
 
-    model = FactorizedParametricSurvival(distribution = Distributions.WeibullDistribution(),
-                    batch_size = 2048,
+    model = FactorizedParametricSurvival(distribution = Distributions.LogLogisticDistribution(),
+                    batch_size = 1024,
                     num_epochs = 20,
                     k = 30,
-                    learning_rate=1e-3,
+                    learning_rate=1e-4,
                     lambda1=0.0,
                     lambda2=0.0
                     )

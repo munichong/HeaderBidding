@@ -22,7 +22,7 @@ class WeibullDistribution:
 
 
 class LogLogisticDistribution:
-    def __init__(self, shape=0.5):
+    def __init__(self, shape=0.4):
         self.shape = shape
 
     def left_censoring(self, time, scale):
@@ -57,21 +57,12 @@ class GumbelDistribution:
         return 1 - self.double_exp_part(time, scale)
 
 class ExponentialDistribution:
+    def __init__(self):
+        self.shape = None
+
     def left_censoring(self, time, scale):
         return 1 - self.right_censoring(time, scale)
 
     def right_censoring(self, time, scale):
         return tf.exp(-1 * scale * time)
 
-class GumbelCDFDistribution:
-    def __init__(self, shape=0.001):
-        self.shape = shape  # this param is actually called "location" in Statistics
-
-    def gamma_incomplete_part(self, time, scale):
-        return tf.igammac(0.0, -1 * tf.exp((time - self.shape) / scale))
-
-    def left_censoring(self, time, scale):
-        return time + (self.gamma_incomplete_part(time, scale) - self.gamma_incomplete_part(0.0, scale)) * scale
-
-    def right_censoring(self, time, scale):
-        return 1 - self.left_censoring(time, scale)
