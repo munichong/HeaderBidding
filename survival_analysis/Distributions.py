@@ -32,15 +32,16 @@ class LogLogisticDistribution:
         return 1 / (scale * time ** self.shape + 1)
 
 
-# class GammaDistribution:
-#     def __init__(self, shape=1.0):
-#         self.shape = shape
-#
-#     def left_censoring(self, time, scale):
-#         return 1- self.right_censoring(time, scale)
-#
-#     def right_censoring(self, time, scale):
-#         return self.shape * tf.igammac(self.shape, scale * time)
+class GammaDistribution:
+    def __init__(self, shape=1.0):
+        self.shape = shape
+
+    def left_censoring(self, time, scale):
+        gamma_dist =  tf.distributions.Gamma(concentration=self.shape, rate=scale)
+        return gamma_dist.cdf(time)
+
+    def right_censoring(self, time, scale):
+        return 1 - self.left_censoring(time, scale)
 
 
 class GumbelDistribution:
