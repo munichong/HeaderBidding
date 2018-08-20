@@ -25,11 +25,17 @@ class LogLogisticDistribution:
     def __init__(self, shape=0.4):
         self.shape = shape
 
+    # def left_censoring(self, time, scale):
+    #     return 1 - self.right_censoring(time, scale)
+    #
+    # def right_censoring(self, time, scale):
+    #     return 1 / (scale * time ** self.shape + 1)
     def left_censoring(self, time, scale):
-        return 1 - self.right_censoring(time, scale)
-
+        return 1 / (time / scale) ** (-1 * self.shape) - 1 / (0.0001 / scale) ** (-1 * self.shape)
+#
     def right_censoring(self, time, scale):
         return 1 / (scale * time ** self.shape + 1)
+
 
 
 class GammaDistribution:
