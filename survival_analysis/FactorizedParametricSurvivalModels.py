@@ -4,6 +4,7 @@ import tensorflow as tf
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
 from survival_analysis.DataReader import SurvivalData
 from survival_analysis import Distributions
+from survival_analysis.EvaluationMetrics import c_index
 
 class FactorizedParametricSurvival:
 
@@ -171,15 +172,17 @@ class FactorizedParametricSurvival:
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
-                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
+                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f\tc-index = %.4f" % (loss_val, acc_val,
+                                                                                     c_index(not_survival_val, events_val, times_val)))
 
                 # evaluation on test data
                 print('*** On Test Set:')
-                (loss_test, acc_test), _, _, _ = self.evaluate(test_data.make_sparse_batch(self.batch_size),
+                (loss_test, acc_test), not_survival_test, events_test, times_test = self.evaluate(test_data.make_sparse_batch(self.batch_size),
                                                               running_vars_initializer, sess,
                                                               eval_nodes_update, eval_nodes_metric,
                                                               sample_weights)
-                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
+                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f\tc-index = %.4f" % (loss_test, acc_test,
+                                                                     c_index(not_survival_val, events_val, times_val)))
 
                 if max_loss_val is None or loss_val < max_loss_val:
                     print("!!! GET THE LOWEST VAL LOSS !!!")
