@@ -5,6 +5,8 @@ import tensorflow as tf
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
 from survival_analysis.DataReader import SurvivalData
 from survival_analysis import Distributions
+from survival_analysis.EvaluationMetrics import c_index
+
 
 class SimpleParametricSurvival:
 
@@ -141,15 +143,19 @@ class SimpleParametricSurvival:
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
-                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
+                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f\tc-index = %.4f" % (loss_val, acc_val,
+                                                                                     c_index(not_survival_val,
+                                                                                             events_val, times_val)))
 
                 # evaluation on test data
                 print('*** On Test Set:')
-                (loss_test, acc_test), _, _, _ = self.evaluate(test_data.make_dense_batch(self.batch_size),
+                (loss_test, acc_test), not_survival_test, events_test, times_test = self.evaluate(test_data.make_dense_batch(self.batch_size),
                                                               running_vars_initializer, sess,
                                                               eval_nodes_update, eval_nodes_metric,
                                                               sample_weights)
-                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
+                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f\tc-index = %.4f" % (loss_test, acc_test,
+                                                                                     c_index(not_survival_test,
+                                                                                             events_test, times_test)))
 
 
                 if max_loss_val is None or loss_val < max_loss_val:
@@ -212,7 +218,7 @@ if __name__ == "__main__":
         ''' The first line is the total number of unique features '''
         num_features = int(f.readline())
 
-    model = SimpleParametricSurvival(distribution = Distributions.WeibullDistribution(),
+    model = SimpleParametricSurvival(distribution = Distributions.LogLogisticDistribution(),
                     batch_size = 128,
                     num_epochs = 20,
                     learning_rate = 0.0001 )
