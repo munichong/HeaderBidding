@@ -172,8 +172,8 @@ class FactorizedParametricSurvival:
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
-                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f\tc-index = %.4f" % (loss_val, acc_val,
-                                                                                     c_index(not_survival_val, events_val, times_val)))
+                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
+                print("Validation C-Index = %.4f" % c_index(not_survival_val, events_val, times_val))
 
                 # evaluation on test data
                 print('*** On Test Set:')
@@ -181,8 +181,8 @@ class FactorizedParametricSurvival:
                                                               running_vars_initializer, sess,
                                                               eval_nodes_update, eval_nodes_metric,
                                                               sample_weights)
-                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f\tc-index = %.4f" % (loss_test, acc_test,
-                                                                     c_index(not_survival_test, events_test, times_test)))
+                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
+                print("TEST C-Index = %.4f" % c_index(not_survival_test, events_test, times_test))
 
                 if max_loss_val is None or loss_val < max_loss_val:
                     print("!!! GET THE LOWEST VAL LOSS !!!")
