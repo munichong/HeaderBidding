@@ -37,6 +37,19 @@ class LogLogisticDistribution:
 #     def right_censoring(self, time, scale):
 #         return 1 - self.left_censoring(time, scale)
 
+class LogisticDistribution:
+    def __init__(self, shape=0.4):
+        self.shape = shape
+
+    def cdf_pointwise(self, time, scale):
+        return 1 / (1 + tf.exp((self.shape - time) / scale))
+
+    def left_censoring(self, time, scale):
+        return self.cdf_pointwise(time, scale) - self.cdf_pointwise(0.0, scale)
+
+    def right_censoring(self, time, scale):
+        return 1 - self.cdf_pointwise(time, scale)
+
 
 
 class GammaDistribution:
