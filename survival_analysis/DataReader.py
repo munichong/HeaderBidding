@@ -12,7 +12,7 @@ class SurvivalData:
         self.times, self.events, self.sparse_features = times, events, sparse_features.tocsr()
         self.num_instances = len(self.times)
 
-    def make_dense_batch(self, batch_size):
+    def make_dense_batch(self, batch_size=20000):
         self.times, self.events, self.sparse_features = shuffle(self.times, self.events, self.sparse_features)
 
         start_index = 0
@@ -24,7 +24,7 @@ class SurvivalData:
                   batch_feat_mat
             start_index += batch_size
 
-    def make_sparse_batch(self, batch_size):
+    def make_sparse_batch(self, batch_size=20000):
         self.times, self.events, self.sparse_features = shuffle(self.times, self.events, self.sparse_features)
         max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]
         # print(max_nonzero_len)  # 103
