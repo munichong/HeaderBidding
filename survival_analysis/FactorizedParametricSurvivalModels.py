@@ -160,7 +160,7 @@ class FactorizedParametricSurvival:
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
                 print('*** On Training Set:')
-                (loss_train, acc_train), _, _, _ = self.evaluate(train_data.make_sparse_batch(self.batch_size),
+                (loss_train, acc_train), _, _, _ = self.evaluate(train_data.make_sparse_batch(),
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
                                                                  sample_weights)
@@ -168,7 +168,7 @@ class FactorizedParametricSurvival:
 
                 # evaluation on validation data
                 print('*** On Validation Set:')
-                (loss_val, acc_val), not_survival_val, events_val, times_val = self.evaluate(val_data.make_sparse_batch(self.batch_size),
+                (loss_val, acc_val), not_survival_val, events_val, times_val = self.evaluate(val_data.make_sparse_batch(),
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
@@ -177,7 +177,7 @@ class FactorizedParametricSurvival:
 
                 # evaluation on test data
                 print('*** On Test Set:')
-                (loss_test, acc_test), not_survival_test, events_test, times_test = self.evaluate(test_data.make_sparse_batch(self.batch_size),
+                (loss_test, acc_test), not_survival_test, events_test, times_test = self.evaluate(test_data.make_sparse_batch(),
                                                               running_vars_initializer, sess,
                                                               eval_nodes_update, eval_nodes_metric,
                                                               sample_weights)
