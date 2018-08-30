@@ -146,19 +146,24 @@ class SimpleParametricSurvival:
                 print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
                 print("Validation C-Index = %.4f" % c_index(not_survival_val, events_val, times_val))
 
-                # evaluation on test data
-                print('*** On Test Set:')
-                (loss_test, acc_test), not_survival_test, events_test, times_test = self.evaluate(test_data.make_dense_batch(),
-                                                              running_vars_initializer, sess,
-                                                              eval_nodes_update, eval_nodes_metric,
-                                                              sample_weights)
-                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
-                print("TEST C-Index = %.4f" % c_index(not_survival_test, events_test, times_test))
+
 
 
                 if max_loss_val is None or loss_val < max_loss_val:
                     print("!!! GET THE LOWEST VAL LOSS !!!")
                     max_loss_val = loss_val
+
+                    # evaluation on test data
+                    print('*** On Test Set:')
+                    (loss_test, acc_test), not_survival_test, events_test, times_test = self.evaluate(
+                        test_data.make_dense_batch(),
+                        running_vars_initializer, sess,
+                        eval_nodes_update, eval_nodes_metric,
+                        sample_weights)
+                    print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
+                    print("TEST C-Index = %.4f" % c_index(not_survival_test, events_test, times_test))
+
+
                     # Store prediction results
                     with open('../all_predictions_simple.csv', 'w', newline="\n") as outfile:
                         csv_writer = csv.writer(outfile)
@@ -217,7 +222,7 @@ if __name__ == "__main__":
         num_features = int(f.readline())
 
     model = SimpleParametricSurvival(distribution = Distributions.LogLogisticDistribution(),
-                    batch_size = 128,
+                    batch_size = 2048,
                     num_epochs = 20,
                     learning_rate = 1e-3 )
     print('Start training...')

@@ -175,18 +175,24 @@ class FactorizedParametricSurvival:
                 print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
                 print("Validation C-Index = %.4f" % c_index(not_survival_val, events_val, times_val))
 
-                # evaluation on test data
-                print('*** On Test Set:')
-                (loss_test, acc_test), not_survival_test, events_test, times_test = self.evaluate(test_data.make_sparse_batch(),
-                                                              running_vars_initializer, sess,
-                                                              eval_nodes_update, eval_nodes_metric,
-                                                              sample_weights)
-                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
-                print("TEST C-Index = %.4f" % c_index(not_survival_test, events_test, times_test))
+
 
                 if max_loss_val is None or loss_val < max_loss_val:
                     print("!!! GET THE LOWEST VAL LOSS !!!")
                     max_loss_val = loss_val
+
+                    # evaluation on test data
+                    print('*** On Test Set:')
+                    (loss_test, acc_test), not_survival_test, events_test, times_test = self.evaluate(
+                        test_data.make_sparse_batch(),
+                        running_vars_initializer, sess,
+                        eval_nodes_update, eval_nodes_metric,
+                        sample_weights)
+                    print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
+                    print("TEST C-Index = %.4f" % c_index(not_survival_test, events_test, times_test))
+
+
+                    # Store prediction results
                     with open('../all_predictions_factorized.csv', 'w', newline="\n") as outfile:
                         csv_writer = csv.writer(outfile)
                         csv_writer.writerow(('NOT_SURV_PROB', 'EVENTS', 'TIMES'))
@@ -201,6 +207,8 @@ class FactorizedParametricSurvival:
                               'shape': self.distribution.shape,
                               'distribution_name': type(self.distribution).__name__}
                     pickle.dump(params, open('../params_factorized.pkl', 'wb'))
+
+
 
 
 
@@ -241,10 +249,10 @@ if __name__ == "__main__":
         num_features = int(f.readline())
 
     model = FactorizedParametricSurvival(distribution = Distributions.LogLogisticDistribution(),
-                    batch_size = 1024,
-                    num_epochs = 20,
-                    k = 30,
-                    learning_rate=1e-4,
+                    batch_size = 2048,
+                    num_epochs = 30,
+                    k = 40,
+                    learning_rate=1e-3,
                     lambda1=0.0,
                     lambda2=0.0
                     )
