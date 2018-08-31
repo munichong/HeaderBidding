@@ -47,19 +47,22 @@ class FactorizedParametricSurvival:
 
         # shape: (batch_size, max_nonzero_len)
         embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=1e-5))
-            # tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=0.01))
-        # shape: (batch_size, max_nonzero_len, k)
-        embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=1e-5))
-
-
         filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
-        filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
-                                  tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
-
         intercept = tf.Variable(1e-5)
         linear_term = self.linear_function(filtered_embeddings_linear, intercept)
-        factorized_term = self.factorization_machines(filtered_embeddings_factorized)
-        scale = tf.nn.softplus(linear_term + factorized_term)
+        scale = linear_term
+
+        embeddings_factorized = None
+        if self.k > 0:
+            # shape: (batch_size, max_nonzero_len, k)
+            embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=1e-5))
+            filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
+                                      tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
+            factorized_term = self.factorization_machines(filtered_embeddings_factorized)
+            scale += factorized_term
+
+
+        scale = tf.nn.softplus(scale)
 
         ''' 
         if event == 0, right-censoring
@@ -88,12 +91,10 @@ class FactorizedParametricSurvival:
         # L2 regularized sum of squares loss function over the embeddings
         lambda_linear = tf.constant(self.lambda1)
         lambda_factorized = tf.constant(self.lambda2)
-        l2_norm = tf.reduce_sum(
-            tf.add(
-                tf.multiply(lambda_linear, tf.pow(embeddings_linear, 2)),
-                tf.reduce_sum(tf.multiply(lambda_factorized, tf.pow(embeddings_factorized, 2)), axis=-1)
-            )
-        )
+        penalty = tf.multiply(lambda_linear, tf.pow(embeddings_linear, 2))
+        if embeddings_factorized is not None:
+            penalty += tf.reduce_sum(tf.multiply(lambda_factorized, tf.pow(embeddings_factorized, 2)), axis=-1)
+        l2_norm = tf.reduce_sum(penalty)
 
         loss_mean = tf.reduce_mean(batch_loss) + l2_norm
         # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
@@ -203,10 +204,11 @@ class FactorizedParametricSurvival:
                     # Store parameters
                     params = {'embeddings_linear': embeddings_linear.eval(),
                               'intercept': intercept.eval(),
-                              'embeddings_factorized': embeddings_factorized.eval(),
                               'shape': self.distribution.shape,
                               'distribution_name': type(self.distribution).__name__}
-                    pickle.dump(params, open('../params_factorized.pkl', 'wb'))
+                    if embeddings_factorized is not None:
+                        params['embeddings_factorized'] = embeddings_factorized.eval(),
+                    pickle.dump(params, open('../params_k%d.pkl' % self.k, 'wb'))
 
 
 
