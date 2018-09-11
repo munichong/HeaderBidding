@@ -42,6 +42,9 @@ class FactorizedParametricSurvival:
         feature_indice = tf.placeholder(tf.int32, name='feature_indice')
         feature_values = tf.placeholder(tf.float32, name='feature_values')
 
+        headerbid_indice = tf.placeholder(tf.int32, name='headerbid_indice')  # for regularization
+        headerbid_values = tf.placeholder(tf.float32, name='headerbid_values')  # for regularization
+
         time = tf.placeholder(tf.float32, shape=[None], name='time')
         event = tf.placeholder(tf.int32, shape=[None], name='event')
 
@@ -124,14 +127,17 @@ class FactorizedParametricSurvival:
                 sess.run(running_vars_initializer)
                 # model training
                 num_batch = 0
-                for time_batch, event_batch, featidx_batch, featval_batch, max_nz_len in train_data.make_sparse_batch(self.batch_size):
-                    # print(time_batch)
+                for time_batch, event_batch, featidx_batch, featval_batch, hdidx_natch, hdval_batch, max_nz_len \
+                        in train_data.make_sparse_batch(self.batch_size):
+
                     num_batch += 1
                     _, loss_batch, _, scale_batch, gradients_batch, gradients_clipped_batch, prob_batch = sess.run([training_op, loss_mean,
                                                                   acc_update, scale, gradients, gradients_clipped, not_survival_proba],
                                                                    feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
+                                             'headerbid_indice:0': hdidx_natch,
+                                             'headerbid_values:0': hdval_batch,
                                              'time:0': time_batch,
                                              'event:0': event_batch})
 
@@ -219,10 +225,12 @@ class FactorizedParametricSurvival:
         all_events = []
         all_times = []
         sess.run(running_init)
-        for time_batch, event_batch, featidx_batch, featval_batch, max_nz_len in next_batch:
+        for time_batch, event_batch, featidx_batch, featval_batch, hdidx_natch, hdval_batch, max_nz_len in next_batch:
             _, _, not_survival  = sess.run(updates, feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
+                                             'headerbid_indice:0': hdidx_natch,
+                                             'headerbid_values:0': hdval_batch,
                                              'time:0': time_batch,
                                              'event:0': event_batch})
             all_not_survival.extend(not_survival)
@@ -246,7 +254,7 @@ class FactorizedParametricSurvival:
 
 
 if __name__ == "__main__":
-    with open('../Vectors_adxwon.csv') as f:
+    with open('../FeatVec_adxwon.csv') as f:
         ''' The first line is the total number of unique features '''
         num_features = int(f.readline())
 
@@ -260,7 +268,7 @@ if __name__ == "__main__":
                     )
     print('Start training...')
     model.run_graph(num_features,
-                    SurvivalData(*pickle.load(open('../Vectors_train.p', 'rb'))),
-                    SurvivalData(*pickle.load(open('../Vectors_val.p', 'rb'))),
-                    SurvivalData(*pickle.load(open('../Vectors_test.p', 'rb'))),
+                    SurvivalData(*pickle.load(open('../TRAIN_SET.p', 'rb'))),
+                    SurvivalData(*pickle.load(open('../VAL_SET.p', 'rb'))),
+                    SurvivalData(*pickle.load(open('../TEST_SET.p', 'rb'))),
                     sample_weights='time')

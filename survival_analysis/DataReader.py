@@ -4,58 +4,58 @@ import tensorflow as tf
 import numpy as np
 from collections import Counter
 from sklearn.utils import shuffle
-
+from survival_analysis.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
 
 class SurvivalData:
 
-    def __init__(self, times, events, sparse_features):
-        self.times, self.events, self.sparse_features = times, events, sparse_features.tocsr()
+    def __init__(self, times, events, sparse_features, sparse_headerbids):
+        self.times, self.events, self.sparse_features, self.sparse_headerbids = \
+            times, events, sparse_features.tocsr(), sparse_headerbids.tocsr()
         self.num_instances = len(self.times)
 
-    # def make_dense_batch(self, batch_size=20000):
-    #     self.times, self.events, self.sparse_features = shuffle(self.times, self.events, self.sparse_features)
-    #
-    #     start_index = 0
-    #     while start_index < self.num_instances:
-    #         batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :].toarray()
-    #         # full_feat_mat = np.zeros(shape=full_feat_mat.shape)
-    #         yield self.times[start_index: start_index + batch_size], \
-    #               self.events[start_index: start_index + batch_size], \
-    #               batch_feat_mat
-    #         start_index += batch_size
-
     def make_sparse_batch(self, batch_size=20000):
-        self.times, self.events, self.sparse_features = shuffle(self.times, self.events, self.sparse_features)
+        self.times, self.events, self.sparse_features, self.sparse_headerbids = \
+            shuffle(self.times, self.events, self.sparse_features, self.sparse_headerbids)
         max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]
-        # print(max_nonzero_len)  # 103
 
         start_index = 0
         while start_index < self.num_instances:
             batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :]
             feat_indices_batch = [list(row) + [0.0] * (max_nonzero_len - len(row))
                                   for row in np.split(batch_feat_mat.indices, batch_feat_mat.indptr)[1:-1]]
-
-            # print(feat_indices_batch)
             feat_values_batch = [list(row) + [0.0] * (max_nonzero_len - len(row))
-                                  for row in np.split(batch_feat_mat.data, batch_feat_mat.indptr)[1:-1]]
+                                 for row in np.split(batch_feat_mat.data, batch_feat_mat.indptr)[1:-1]]
+
+            batch_hd_mat = self.sparse_headerbids[start_index: start_index + batch_size, :]
+            hd_indices_batch = [list(row) + [0.0] * (len(HEADER_BIDDING_KEYS) - len(row))
+                                for row in np.split(batch_hd_mat.indices, batch_hd_mat.indptr)[1:-1]]
+            hd_values_batch = [list(row) + [0.0] * (len(HEADER_BIDDING_KEYS) - len(row))
+                               for row in np.split(batch_hd_mat.data, batch_hd_mat.indptr)[1:-1]]
+
+
 
             yield self.times[start_index: start_index + batch_size], \
                   self.events[start_index: start_index + batch_size], \
                   feat_indices_batch, \
                   feat_values_batch, \
+                  hd_indices_batch, \
+                  hd_values_batch, \
                   max_nonzero_len
             start_index += batch_size
 
 
 
 if __name__ == "__main__":
-    times, events, sparse_features = pickle.load(open('../Vectors_train.p', 'rb'))
-    s = SurvivalData(times, events, sparse_features)
-    for t, e, ind, val, max_nonzero_len in s.make_sparse_batch(10):
+    times, events, sparse_features, sparse_headerbids = pickle.load(open('../Vectors_train.p', 'rb'))
+    s = SurvivalData(times, events, sparse_features, sparse_headerbids)
+    for t, e, f_ind, f_val, h_ind, h_val, max_nonzero_len in s.make_sparse_batch(10):
         print(t)
         print(e)
-        print(ind)
-        print(val)
+        print(f_ind)
+        print(f_val)
+        print(h_ind)
+        print(h_val)
+        print(max_nonzero_len)
         print()
         '''
         
