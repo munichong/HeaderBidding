@@ -2,7 +2,9 @@ import csv, random, numpy as np, pickle
 from random import shuffle
 from scipy.sparse import coo_matrix
 
-ADXWON_INFILE_PATH, ADXLOSE_INFILE_PATH = '../Vectors_adxwon.csv', '../Vectors_adxlose.csv'
+ADXWON_FEATVEC_IN_PATH, ADXLOSE_FEATVEC_IN_PATH = '../FeatVec_adxwon.csv', '../FeatVec_adxlose.csv'
+ADXWON_HEADERBIDS_IN_PATH, ADXLOSE_HEADERBIDS_IN_PATH = '../HeaderBids_adxwon.csv', '../HeaderBids_adxlose.csv'
+
 TRAIN_OUTCSV_PATH, VAL_OUTCSV_PATH, TEST_OUTCSV_PATH = '../Vectors_train.csv', '../Vectors_val.csv', '../Vectors_test.csv'
 TRAIN_OUTPKL_PATH, VAL_OUTPKL_PATH, TEST_OUTPKL_PATH = '../Vectors_train.p', '../Vectors_val.p', '../Vectors_test.p'
 
@@ -15,35 +17,40 @@ def num_lines(file_path):
 def print_lines_info(file_path):
     print("%d lines in the %s" % (num_lines(file_path), file_path))
 
-for infile_path in (ADXWON_INFILE_PATH, ADXLOSE_INFILE_PATH):
+for infile_path in (ADXWON_FEATVEC_IN_PATH, ADXLOSE_FEATVEC_IN_PATH):
     print_lines_info(infile_path)
 
 
 
 
-def random_split(INFILE_PATH):
+def random_split(FEATVEC_PATH, HD_PATH):
     """
     This function assumes that the entire data can completely fit into the memory
     """
     global num_features
-    with open(INFILE_PATH, newline='\n') as infile:
-        num_features = int(next(infile))  # skip the header
-        for line in infile:
+    with open(FEATVEC_PATH, newline='\n') as featvec_file, open(HD_PATH, newline='\n') as hd_file:
+        num_features = int(next(featvec_file))  # skip the header
+        next(hd_file)  # skip the header
+        for featvec_line, hd_line in zip(featvec_file, hd_file):
             rand_float = random.random()  # Random float x, 0.0 <= x < 1.0
             if rand_float < TRAIN_PCT:
-                training_data.append(line)
+                training_data.append((featvec_line, hd_line))
             elif TRAIN_PCT <= rand_float < TRAIN_PCT + VAL_PCT:
-                validation_data.append(line)
+                validation_data.append((featvec_line, hd_line))
             else:
-                test_data.append(line)
+                test_data.append((featvec_line, hd_line))
 
-training_data, validation_data, test_data = [], [], []
+training_data, validation_data, test_data = [], [], [] # [(features_sparse_str, headerbids_sparse_str), ...]
 num_features = 0
 
 print()
 print("Splitting data...")
-for infile_path in (ADXWON_INFILE_PATH, ADXLOSE_INFILE_PATH):
-    random_split(infile_path)
+for featvec_path, headerbids_path in ((ADXWON_FEATVEC_IN_PATH, ADXWON_HEADERBIDS_IN_PATH),
+                    (ADXLOSE_FEATVEC_IN_PATH, ADXLOSE_HEADERBIDS_IN_PATH)):
+    random_split(featvec_path, headerbids_path)
+
+
+
 
 print()
 print("Writing data...")

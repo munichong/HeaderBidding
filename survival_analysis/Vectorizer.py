@@ -133,10 +133,10 @@ if __name__ == "__main__":
         pass
 
     output_vector_files('../FeatVec_adxwon.csv',
-                        '../HeadBids_adxwon.csv',
+                        '../HeaderBids_adxwon.csv',
                         'NetworkBackfillImpressions',
                         NetworkBackfillImpressionEntry)
     output_vector_files('../FeatVec_adxlose.csv',
-                        '../HeadBids_adxlose.csv',
+                        '../HeaderBids_adxlose.csv',
                         'NetworkImpressions',
                         NetworkImpressionEntry)
