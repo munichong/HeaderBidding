@@ -12,17 +12,17 @@ class SurvivalData:
         self.times, self.events, self.sparse_features = times, events, sparse_features.tocsr()
         self.num_instances = len(self.times)
 
-    def make_dense_batch(self, batch_size=20000):
-        self.times, self.events, self.sparse_features = shuffle(self.times, self.events, self.sparse_features)
-
-        start_index = 0
-        while start_index < self.num_instances:
-            batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :].toarray()
-            # full_feat_mat = np.zeros(shape=full_feat_mat.shape)
-            yield self.times[start_index: start_index + batch_size], \
-                  self.events[start_index: start_index + batch_size], \
-                  batch_feat_mat
-            start_index += batch_size
+    # def make_dense_batch(self, batch_size=20000):
+    #     self.times, self.events, self.sparse_features = shuffle(self.times, self.events, self.sparse_features)
+    #
+    #     start_index = 0
+    #     while start_index < self.num_instances:
+    #         batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :].toarray()
+    #         # full_feat_mat = np.zeros(shape=full_feat_mat.shape)
+    #         yield self.times[start_index: start_index + batch_size], \
+    #               self.events[start_index: start_index + batch_size], \
+    #               batch_feat_mat
+    #         start_index += batch_size
 
     def make_sparse_batch(self, batch_size=20000):
         self.times, self.events, self.sparse_features = shuffle(self.times, self.events, self.sparse_features)

@@ -98,17 +98,17 @@ class ImpressionEntry:
                 header_bids[i] = float(ct[hd_key]) if hd_key in ct else 0.0
         return header_bids
 
-    def to_full_feature_vector(self, n_feats, attr2idx):
-        vector = [0] * n_feats
-        for attr, feats in self.entry.items():
-            if type(feats) == list:
-                for f in feats:
-                    vector[attr2idx[attr][f]] = 1
-            elif type(feats) == str:
-                vector[attr2idx[attr][feats]] = 1
-            else:
-                vector[attr2idx[attr][attr]] = feats
-        return vector + self.get_headerbidding()
+    # def to_full_feature_vector(self, n_feats, attr2idx):
+    #     vector = [0] * n_feats
+    #     for attr, feats in self.entry.items():
+    #         if type(feats) == list:
+    #             for f in feats:
+    #                 vector[attr2idx[attr][f]] = 1
+    #         elif type(feats) == str:
+    #             vector[attr2idx[attr][feats]] = 1
+    #         else:
+    #             vector[attr2idx[attr][attr]] = feats
+    #     return vector + self.get_headerbidding()
 
     def to_sparse_feature_vector(self, n_feats, attr2idx):
         vector = []
