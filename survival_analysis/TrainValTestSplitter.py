@@ -1,12 +1,11 @@
 import csv, random, numpy as np, pickle
-from random import shuffle
 from scipy.sparse import coo_matrix
+from survival_analysis.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
 
 ADXWON_FEATVEC_IN_PATH, ADXLOSE_FEATVEC_IN_PATH = '../FeatVec_adxwon.csv', '../FeatVec_adxlose.csv'
-ADXWON_HEADERBIDS_IN_PATH, ADXLOSE_HEADERBIDS_IN_PATH = '../HeaderBids_adxwon.csv', '../HeaderBids_adxlose.csv'
+ADXWON_HD_IN_PATH, ADXLOSE_HD_IN_PATH = '../HeaderBids_adxwon.csv', '../HeaderBids_adxlose.csv'
 
-TRAIN_OUTCSV_PATH, VAL_OUTCSV_PATH, TEST_OUTCSV_PATH = '../Vectors_train.csv', '../Vectors_val.csv', '../Vectors_test.csv'
-TRAIN_OUTPKL_PATH, VAL_OUTPKL_PATH, TEST_OUTPKL_PATH = '../Vectors_train.p', '../Vectors_val.p', '../Vectors_test.p'
+TRAIN_OUT_PATH, VAL_OUT_PATH, TEST_OUT_PATH = '../TRAIN_SET.p', '../VAL_SET.p', '../TEST_SET.p'
 
 TRAIN_PCT, VAL_PCT = 0.8, 0.1
 
@@ -34,56 +33,57 @@ def random_split(FEATVEC_PATH, HD_PATH):
         for featvec_line, hd_line in zip(featvec_file, hd_file):
             rand_float = random.random()  # Random float x, 0.0 <= x < 1.0
             if rand_float < TRAIN_PCT:
-                training_data.append((featvec_line, hd_line))
+                training_featvec.append(featvec_line)
+                training_hd.append(hd_line)
             elif TRAIN_PCT <= rand_float < TRAIN_PCT + VAL_PCT:
-                validation_data.append((featvec_line, hd_line))
+                validation_featvec.append(featvec_line)
+                validation_hd.append(hd_line)
             else:
-                test_data.append((featvec_line, hd_line))
+                test_featvec.append(featvec_line)
+                test_hd.append(test_hd)
 
-training_data, validation_data, test_data = [], [], [] # [(features_sparse_str, headerbids_sparse_str), ...]
+training_featvec, validation_featvec, test_featvec = [], [], []
+training_hd, validation_hd, test_hd = [], [], []
 num_features = 0
 
 print()
 print("Splitting data...")
-for featvec_path, headerbids_path in ((ADXWON_FEATVEC_IN_PATH, ADXWON_HEADERBIDS_IN_PATH),
-                    (ADXLOSE_FEATVEC_IN_PATH, ADXLOSE_HEADERBIDS_IN_PATH)):
+for featvec_path, headerbids_path in (
+                    (ADXWON_FEATVEC_IN_PATH, ADXWON_HD_IN_PATH),
+                    (ADXLOSE_FEATVEC_IN_PATH, ADXLOSE_HD_IN_PATH)):
     random_split(featvec_path, headerbids_path)
 
 
 
 
-print()
-print("Writing data...")
-for data, outfile_path in ((training_data, TRAIN_OUTCSV_PATH),
-                            (validation_data, VAL_OUTCSV_PATH),
-                            (test_data, TEST_OUTCSV_PATH)):
-    shuffle(data)
-    open(outfile_path, 'w', newline='\n').writelines(data)
-    print_lines_info(outfile_path)
-
-
-
-def read_data(file_path):
+for featvec_set, hd_set, out_path in ((training_featvec, training_hd, TRAIN_OUT_PATH),
+                            (validation_featvec, validation_hd, VAL_OUT_PATH),
+                            (test_featvec, test_hd, TEST_OUT_PATH)):
     times, events = [], []
-    row_indices, col_indices, values = [], [], []
+    row_indices_fv, col_indices_fv, values_fv = [], [], []
+    row_indices_hd, col_indices_hd, values_hd = [], [], []
     num_rows = 0
-    with open(file_path) as infile:
-        csv_reader = csv.reader(infile, delimiter=',')
-        for row_index, row in enumerate(csv_reader):
-            num_rows += 1
-            times.append(float(row[0]))
-            events.append(int(row[1]))
-            for node in row[2:]:
-                col_index, val = node.split(':')
-                row_indices.append(row_index)
-                col_indices.append(int(col_index))
-                values.append(float(val))
-    return np.array(times), \
-           np.array(events), \
-           coo_matrix((values, (row_indices, col_indices)), shape=(num_rows, num_features))
+    for i, (featvec, hd) in enumerate(zip(featvec_set, hd_set)):
+        num_rows += 1
+        times.append(float(featvec[0]))
+        events.append(int(featvec[1]))
+        for node in featvec[2:]:
+            col_index, val = node.split(':')
+            row_indices_fv.append(i)
+            col_indices_fv.append(int(col_index))
+            values_fv.append(float(val))
 
-for csvfile, picklefile in ((TRAIN_OUTCSV_PATH, TRAIN_OUTPKL_PATH),
-                            (VAL_OUTCSV_PATH, VAL_OUTPKL_PATH),
-                            (TEST_OUTCSV_PATH, TEST_OUTPKL_PATH)):
-    pickle.dump(read_data(csvfile), open(picklefile, 'wb'))
-    print("DUMP:", picklefile)
+        for node in hd:
+            col_index, val = node.split(':')
+            row_indices_hd.append(i)
+            col_indices_hd.append(int(col_index))
+            values_hd.append(float(val))
+
+    pickle.dump((np.array(times),
+                 np.array(events),
+                 coo_matrix((values_fv, (row_indices_fv, col_indices_fv)), shape=(num_rows, num_features)),
+                 coo_matrix((values_hd, (row_indices_hd, col_indices_hd)), shape=(num_rows, len(HEADER_BIDDING_KEYS))),
+                 ),
+                open(out_path, 'wb'))
+    print("DUMP:", out_path)
+
