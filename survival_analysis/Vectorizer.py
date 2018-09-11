@@ -73,7 +73,7 @@ class Vectorizer:
             return None
 
         # return target + imp_entry.to_full_feature_vector(self.num_features, self.attr2idx)
-        return target + imp_entry.to_sparse_feature_vector(self.num_features, self.attr2idx)
+        return target + imp_entry.to_sparse_feature_vector(self.attr2idx)
 
 
     def transform(self, dbname, colname, ImpressionEntry):
@@ -81,27 +81,36 @@ class Vectorizer:
         n = 0
         total_entries = self.col.find().count()
         matrix = []
+        header_bids = []
         for doc in self.col.find(projection=FEATURE_FIELDS):
             if n % 1000000 == 0:
                 print('%d/%d' % (n, total_entries))
-                yield matrix
+                yield matrix, header_bids
                 matrix.clear()
+                header_bids.clear()
 
             n += 1
-            vector = self.transform_one(doc, ImpressionEntry)
-            if vector:
-                matrix.append(vector)
+            feat_vector = self.transform_one(doc, ImpressionEntry)
+            hds = ImpressionEntry.to_sparse_headerbids()
+            if feat_vector:
+                matrix.append(feat_vector)
+                header_bids.append(hds)
 
-        yield matrix
+        yield matrix, header_bids
         matrix.clear()
+        header_bids.clear()
 
 
-def output_vector_files(path, colname, ImpressionEntry):
-    with open(path, 'a', newline='\n') as outfile:
-        writer = csv.writer(outfile, delimiter=',')
-        writer.writerow([vectorizer.num_features + len(HEADER_BIDDING_KEYS)])  # the number of features WITH header bidding BUT WITHOUT 'duration' and 'event'
-        for mat in vectorizer.transform('Header_Bidding', colname, ImpressionEntry):
-            writer.writerows(mat)
+def output_vector_files(featfile_path, hdfile_path, colname, ImpressionEntry):
+    with open(featfile_path, 'a', newline='\n') as outfile_feat, open(hdfile_path, 'a', newline='\n') as outfile_hd:
+        writer_feat = csv.writer(outfile_feat, delimiter=',')
+        writer_hd = csv.writer(outfile_hd, delimiter=',')
+        writer_feat.writerow([vectorizer.num_features])  # the number of features WITH header bidding BUT WITHOUT 'duration', 'event', and header bids
+        writer_hd.writerow([len(HEADER_BIDDING_KEYS)])
+        for mat, hds in vectorizer.transform('Header_Bidding', colname, ImpressionEntry):
+            writer_feat.writerows(mat)
+            writer_hd.writerows(hds)
+
 
 
 if __name__ == "__main__":
@@ -118,10 +127,16 @@ if __name__ == "__main__":
     pickle.dump(vectorizer.attr2idx, open("../attr2idx.dict", "wb"))  # the dict does not contain header bidding.
 
     try:
-        os.remove('../Vectors_adxwon.csv')
-        os.remove('../Vectors_adxlose.csv')
+        os.remove('../FeatVec_adxwon.csv')
+        os.remove('../FeatVec_adxlose.csv')
     except OSError:
         pass
 
-    output_vector_files('../Vectors_adxwon.csv', 'NetworkBackfillImpressions', NetworkBackfillImpressionEntry)
-    output_vector_files('../Vectors_adxlose.csv', 'NetworkImpressions', NetworkImpressionEntry)
+    output_vector_files('../FeatVec_adxwon.csv',
+                        '../HeadBids_adxwon.csv',
+                        'NetworkBackfillImpressions',
+                        NetworkBackfillImpressionEntry)
+    output_vector_files('../FeatVec_adxlose.csv',
+                        '../HeadBids_adxlose.csv',
+                        'NetworkImpressions',
+                        NetworkImpressionEntry)

@@ -86,31 +86,28 @@ class ImpressionEntry:
             return True
         return False
 
-    def get_headerbidding(self):
+    def get_headerbids(self):
         ct = self.doc['CustomTargeting']
-        header_bids = [0] * len(HEADER_BIDDING_KEYS)
+        header_bids = [None] * len(HEADER_BIDDING_KEYS)
         for i, hd_key in enumerate(HEADER_BIDDING_KEYS):
+            if hd_key not in ct:
+                continue
             if hd_key == 'fb_bid_price_cents':
-                header_bids[i] = float(ct[hd_key]) / 100 if hd_key in ct else 0.0
-            elif hd_key == 'amznbid':
-                header_bids[i] = self.amzbid_mapping[ct[hd_key]] if hd_key in ct and ct[hd_key] in self.amzbid_mapping else 0.0
+                header_bids[i] = float(ct[hd_key]) / 100
+            elif hd_key == 'amznbid' and ct[hd_key] in self.amzbid_mapping:
+                header_bids[i] = self.amzbid_mapping[ct[hd_key]]
             else:
-                header_bids[i] = float(ct[hd_key]) if hd_key in ct else 0.0
+                header_bids[i] = float(ct[hd_key])
         return header_bids
 
-    def to_full_feature_vector(self, n_feats, attr2idx):
-        vector = [0] * n_feats
-        for attr, feats in self.entry.items():
-            if type(feats) == list:
-                for f in feats:
-                    vector[attr2idx[attr][f]] = 1
-            elif type(feats) == str:
-                vector[attr2idx[attr][feats]] = 1
-            else:
-                vector[attr2idx[attr][attr]] = feats
-        return vector + self.get_headerbidding()
+    def to_sparse_headerbids(self):
+        sparse_rep = []
+        for i, hd in enumerate(self.get_headerbids()):
+            if hd is not None:
+                sparse_rep.append(':'.join(map(str, [i, hd])))
+        return sparse_rep
 
-    def to_sparse_feature_vector(self, n_feats, attr2idx):
+    def to_sparse_feature_vector(self, attr2idx):
         vector = []
         for attr, feats in self.entry.items():
             if type(feats) == list:
@@ -121,8 +118,8 @@ class ImpressionEntry:
             else:
                 vector.append(':'.join(map(str, [attr2idx[attr][attr], feats])))
         # append header bids
-        for i, bid in enumerate(self.get_headerbidding()):
-            if bid == 0:
-                continue
-            vector.append(':'.join(map(str, [n_feats + i, bid])))
+        # for i, bid in enumerate(self.get_headerbidding()):
+        #     if bid == 0:
+        #         continue
+        #     vector.append(':'.join(map(str, [n_feats + i, bid])))
         return vector
