@@ -70,10 +70,10 @@ class Vectorizer:
         imp_entry.build_entry()
         target = imp_entry.get_target()
         if not imp_entry.is_qualified() or not target:
-            return None
-
+            return None, None
+        header_bids = imp_entry.to_sparse_headerbids()
         # return target + imp_entry.to_full_feature_vector(self.num_features, self.attr2idx)
-        return target + imp_entry.to_sparse_feature_vector(self.attr2idx)
+        return target + imp_entry.to_sparse_feature_vector(self.attr2idx), header_bids
 
 
     def transform(self, dbname, colname, ImpressionEntry):
@@ -90,8 +90,8 @@ class Vectorizer:
                 header_bids.clear()
 
             n += 1
-            feat_vector = self.transform_one(doc, ImpressionEntry)
-            hds = ImpressionEntry.to_sparse_headerbids()
+            feat_vector, hds = self.transform_one(doc, ImpressionEntry)
+
             if feat_vector:
                 matrix.append(feat_vector)
                 header_bids.append(hds)
@@ -115,8 +115,11 @@ def output_vector_files(featfile_path, hdfile_path, colname, ImpressionEntry):
 
 if __name__ == "__main__":
     vectorizer = Vectorizer()
+    print('Fitting NetworkBackfillImpressions...')
     vectorizer.fit('Header_Bidding', 'NetworkBackfillImpressions', NetworkBackfillImpressionEntry)
     pprint(vectorizer.counter)
+    print()
+    print('Fitting NetworkImpressions...')
     vectorizer.fit('Header_Bidding', 'NetworkImpressions', NetworkImpressionEntry)
     vectorizer.build_attr2idx()
     pprint(vectorizer.counter)
@@ -129,6 +132,8 @@ if __name__ == "__main__":
     try:
         os.remove('../FeatVec_adxwon.csv')
         os.remove('../FeatVec_adxlose.csv')
+        os.remove('../HeaderBids_adxwon.csv')
+        os.remove('../HeaderBids_adxlose.csv')
     except OSError:
         pass
 

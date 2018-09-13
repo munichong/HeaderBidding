@@ -92,10 +92,12 @@ class ImpressionEntry:
         for i, hd_key in enumerate(HEADER_BIDDING_KEYS):
             if hd_key not in ct:
                 continue
+
             if hd_key == 'fb_bid_price_cents':
                 header_bids[i] = float(ct[hd_key]) / 100
-            elif hd_key == 'amznbid' and ct[hd_key] in self.amzbid_mapping:
-                header_bids[i] = self.amzbid_mapping[ct[hd_key]]
+            elif hd_key == 'amznbid':
+                if ct[hd_key] in self.amzbid_mapping:
+                    header_bids[i] = self.amzbid_mapping[ct[hd_key]]
             else:
                 header_bids[i] = float(ct[hd_key])
         return header_bids
