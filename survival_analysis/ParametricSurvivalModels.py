@@ -9,14 +9,15 @@ from survival_analysis.EvaluationMetrics import c_index
 class FactorizedParametricSurvival:
 
     def __init__(self, distribution, batch_size, num_epochs, k, learning_rate=0.001,
-                 lambda1=0.0, lambda2=0.0):
+                 lambda_linear=0.0, lambda_factorized=0.0, lambda_hd=0.0):
         self.distribution = distribution
         self.batch_size = batch_size
         self.num_epochs = num_epochs
         self.k = k
         self.learning_rate = learning_rate
-        self.lambda1 = lambda1
-        self.lambda2 = lambda2
+        self.lambda_linear = lambda_linear
+        self.lambda_factorized = lambda_factorized
+        self.lambda_hd = lambda_hd
 
     def linear_function(self, weights_linear, intercept):
         return tf.reduce_sum(weights_linear, axis=-1) + intercept
@@ -42,7 +43,7 @@ class FactorizedParametricSurvival:
         feature_indice = tf.placeholder(tf.int32, name='feature_indice')
         feature_values = tf.placeholder(tf.float32, name='feature_values')
 
-        headerbid_indice = tf.placeholder(tf.int32, name='headerbid_indice')  # for regularization
+        headerbid_indice = tf.placeholder(tf.int32, name='headerbid_indice')  # no use, represents bidder id
         headerbid_values = tf.placeholder(tf.float32, name='headerbid_values')  # for regularization
 
         time = tf.placeholder(tf.float32, shape=[None], name='time')
@@ -91,15 +92,21 @@ class FactorizedParametricSurvival:
             batch_loss = tf.losses.log_loss(labels=event, predictions=not_survival_proba, weights=time)
         running_loss, loss_update = tf.metrics.mean(batch_loss)
 
+
+        # Header Bidding Regularization
+        hd_pred = tf.where(tf.equal(not_survival_bin, 0.0),
+                          self.distribution.left_censoring(tf.max(headerbid_values), scale),
+                          self.distribution.left_censoring(tf.min(headerbid_values), scale))
+        hd_reg = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_pred)), predictions=hd_pred)
+        hd_reg = tf.reduce_mean(tf.multiple(tf.constant(self.lambda_hd), hd_reg))
+
         # L2 regularized sum of squares loss function over the embeddings
-        lambda_linear = tf.constant(self.lambda1)
-        lambda_factorized = tf.constant(self.lambda2)
-        penalty = tf.multiply(lambda_linear, tf.pow(embeddings_linear, 2))
+        penalty = tf.multiply(tf.constant(self.lambda_linear), tf.pow(embeddings_linear, 2))
         if embeddings_factorized is not None:
-            penalty += tf.reduce_sum(tf.multiply(lambda_factorized, tf.pow(embeddings_factorized, 2)), axis=-1)
+            penalty += tf.reduce_sum(tf.multiply(tf.constant(self.lambda_factorized), tf.pow(embeddings_factorized, 2)), axis=-1)
         l2_norm = tf.reduce_sum(penalty)
 
-        loss_mean = tf.reduce_mean(batch_loss) + l2_norm
+        loss_mean = tf.reduce_mean(batch_loss) + hd_reg + l2_norm
         # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
 
         ### gradient clipping
@@ -263,8 +270,9 @@ if __name__ == "__main__":
                     num_epochs = 30,
                     k = 40,
                     learning_rate=1e-3,
-                    lambda1=0.0,
-                    lambda2=0.0
+                    lambda_linear=0.0,
+                    lambda_factorized=0.0,
+                    lambda_hd=0.0
                     )
     print('Start training...')
     model.run_graph(num_features,
