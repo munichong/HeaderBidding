@@ -129,18 +129,21 @@ class FactorizedParametricSurvival:
         elif sample_weights == 'time':
             hd_reg_adxwon = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_adxwon_pred)), predictions=hd_adxwon_pred, weights=time)
             hd_reg_adxlose = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_adxlose_pred)), predictions=hd_adxlose_pred, weights=time)
-        mean_hd_reg_adxwon = tf.reduce_mean(tf.multiply(tf.constant(self.lambda_hd_adxwon), hd_reg_adxwon))
-        mean_hd_reg_adxlose = tf.reduce_mean(tf.multiply(tf.constant(self.lambda_hd_adxlose), hd_reg_adxlose))
+        mean_hd_reg_adxwon = tf.reduce_mean(hd_reg_adxwon)
+        mean_hd_reg_adxlose = tf.reduce_mean(hd_reg_adxlose)
 
 
         # L2 regularized sum of squares loss function over the embeddings
-        l2_norm = tf.multiply(tf.constant(self.lambda_linear), tf.pow(embeddings_linear, 2))
+        l2_norm = tf.constant(self.lambda_linear) * tf.pow(embeddings_linear, 2)
         if embeddings_factorized is not None:
-            l2_norm += tf.reduce_sum(tf.multiply(tf.constant(self.lambda_factorized), tf.pow(embeddings_factorized, 2)), axis=-1)
-        sum_l2_norm = tf.reduce_sum(l2_norm)
+            l2_norm += tf.reduce_sum(tf.pow(embeddings_factorized, 2), axis=-1)
+        sum_l2_norm = tf.constant(self.lambda_factorized) * tf.reduce_sum(l2_norm)
 
 
-        loss_mean = mean_batch_loss + mean_hd_reg_adxwon + mean_hd_reg_adxlose + sum_l2_norm
+        loss_mean = mean_batch_loss + \
+                    tf.constant(self.lambda_hd_adxwon) * mean_hd_reg_adxwon + \
+                    tf.constant(self.lambda_hd_adxlose) * mean_hd_reg_adxlose + \
+                    sum_l2_norm
         # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
 
         ### gradient clipping
