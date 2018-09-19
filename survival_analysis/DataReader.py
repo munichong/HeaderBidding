@@ -21,25 +21,42 @@ class SurvivalData:
         start_index = 0
         while start_index < self.num_instances:
             batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :]
+            # padding
             feat_indices_batch = [list(row) + [0.0] * (max_nonzero_len - len(row))
                                   for row in np.split(batch_feat_mat.indices, batch_feat_mat.indptr)[1:-1]]
             feat_values_batch = [list(row) + [0.0] * (max_nonzero_len - len(row))
                                  for row in np.split(batch_feat_mat.data, batch_feat_mat.indptr)[1:-1]]
 
             batch_hd_mat = self.sparse_headerbids[start_index: start_index + batch_size, :]
-            hd_indices_batch = [list(row) + [0.0] * (len(HEADER_BIDDING_KEYS) - len(row))
-                                for row in np.split(batch_hd_mat.indices, batch_hd_mat.indptr)[1:-1]]
-            hd_values_batch = [list(row) + [0.0] * (len(HEADER_BIDDING_KEYS) - len(row))
-                               for row in np.split(batch_hd_mat.data, batch_hd_mat.indptr)[1:-1]]
-
+            '''
+            EXAMPLE of row (Array):
+            [0.1]
+            [2.77]
+            []
+            [0.04 1.52 1.53]
+            [1.56 1.5 ]
+            []
+            [0.12 0.03 0.22]
+            '''
+            min_hds_batch = []
+            max_hds_batch = []
+            for row in np.split(batch_hd_mat.data, batch_hd_mat.indptr)[1:-1]:
+                if row.size:
+                    min_hds_batch.append(min(row))
+                    max_hds_batch.append(max(row))
+                else:
+                    # if header bids are missing, use 0.0 instead.
+                    min_hds_batch.append(0.0)
+                    max_hds_batch.append(0.0)
+            # np.split(batch_hd_mat.indices, batch_hd_mat.indptr)[1:-1]
 
 
             yield self.times[start_index: start_index + batch_size], \
                   self.events[start_index: start_index + batch_size], \
                   feat_indices_batch, \
                   feat_values_batch, \
-                  hd_indices_batch, \
-                  hd_values_batch, \
+                  min_hds_batch, \
+                  max_hds_batch, \
                   max_nonzero_len
             start_index += batch_size
 
