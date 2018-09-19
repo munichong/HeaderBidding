@@ -112,7 +112,11 @@ class FactorizedParametricSurvival:
         hd_pred = tf.where(tf.equal(regable_event, 0),
                           self.distribution.left_censoring(regable_maxhds, regable_scale),
                           self.distribution.left_censoring(regable_minhds, regable_scale))
-        hd_reg = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_pred)), predictions=hd_pred)
+        hd_reg = None
+        if not sample_weights:
+            hd_reg = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_pred)), predictions=hd_pred)
+        elif sample_weights == 'time':
+            hd_reg = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_pred)), predictions=hd_pred, weights=time)
         mean_hd_reg = tf.reduce_mean(tf.multiply(tf.constant(self.lambda_hd), hd_reg))
 
 
