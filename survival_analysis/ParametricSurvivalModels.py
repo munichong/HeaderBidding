@@ -124,11 +124,19 @@ class FactorizedParametricSurvival:
 
         hd_reg_adxwon, hd_reg_adxlose = None, None
         if not sample_weights:
-            hd_reg_adxwon = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_adxwon_pred)), predictions=hd_adxwon_pred)
-            hd_reg_adxlose = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_adxlose_pred)), predictions=hd_adxlose_pred)
+            hd_reg_adxwon = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_adxwon_pred)),
+                                               predictions=hd_adxwon_pred)
+            hd_reg_adxlose = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_adxlose_pred)),
+                                                predictions=hd_adxlose_pred)
         elif sample_weights == 'time':
-            hd_reg_adxwon = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_adxwon_pred)), predictions=hd_adxwon_pred, weights=time)
-            hd_reg_adxlose = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_adxlose_pred)), predictions=hd_adxlose_pred, weights=time)
+            regable_time_adxwon = tf.dynamic_partition(time, hd_adxwon_partitions, 2)[1]
+            regable_time_adxlose = tf.dynamic_partition(time, hd_adxlose_partitions, 2)[1]
+            hd_reg_adxwon = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_adxwon_pred)),
+                                               predictions=hd_adxwon_pred,
+                                               weights=regable_time_adxwon)
+            hd_reg_adxlose = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_adxlose_pred)),
+                                                predictions=hd_adxlose_pred,
+                                                weights=regable_time_adxlose)
         mean_hd_reg_adxwon = tf.reduce_mean(hd_reg_adxwon)
         mean_hd_reg_adxlose = tf.reduce_mean(hd_reg_adxlose)
 
@@ -175,8 +183,8 @@ class FactorizedParametricSurvival:
                         in train_data.make_sparse_batch(self.batch_size):
 
                     num_batch += 1
-                    _, loss_batch, _, event_batch, time_batch, mean_hd_reg_adxwon_batch, mean_hd_reg_adxlose_batch = sess.run([training_op, loss_mean,
-                                                                  acc_update, event, time, mean_hd_reg_adxwon, mean_hd_reg_adxlose],
+                    _, loss_batch, _, event_batch, time_batch, mean_hd_reg_adxwon_batch, mean_hd_reg_adxlose_batch, mean_batch_loss_batch = sess.run([training_op, loss_mean,
+                                                                  acc_update, event, time, mean_hd_reg_adxwon, mean_hd_reg_adxlose, mean_batch_loss],
                                                                    feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
@@ -190,8 +198,8 @@ class FactorizedParametricSurvival:
                     print(mean_hd_reg_adxwon_batch)
                     print('mean_hd_reg_adxlose_batch')
                     print(mean_hd_reg_adxlose_batch)
-                    # print('regable_mask_batch')
-                    # print(regable_mask_batch)
+                    print('mean_batch_loss_batch')
+                    print(mean_batch_loss_batch)
                     # print("event_batch")
                     # print(event_batch)
                     # print('time_batch')
@@ -299,7 +307,8 @@ if __name__ == "__main__":
         ''' The first line is the total number of unique features '''
         num_features = int(f.readline())
 
-    model = FactorizedParametricSurvival(distribution = Distributions.LogLogisticDistribution(),
+    model = FactorizedParametricSurvival(
+        distribution = Distributions.LogLogisticDistribution(),
                     batch_size = 512,
                     num_epochs = 30,
                     k = 40,
@@ -307,7 +316,7 @@ if __name__ == "__main__":
                     lambda_linear=0.0,
                     lambda_factorized=0.0,
                     lambda_hd_adxwon=0.0,
-                    lambda_hd_adxlosen=0.0
+                    lambda_hd_adxlose=0.0
                     )
     print('Start training...')
     model.run_graph(num_features,
