@@ -5,6 +5,7 @@ from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
 from survival_analysis.DataReader import SurvivalData
 from survival_analysis import Distributions
 from survival_analysis.EvaluationMetrics import c_index
+from time import time as nowtime
 
 class FactorizedParametricSurvival:
 
@@ -179,10 +180,12 @@ class FactorizedParametricSurvival:
                 sess.run(running_vars_initializer)
                 # model training
                 num_batch = 0
+                start = nowtime()
                 for time_batch, event_batch, featidx_batch, featval_batch, minhds_natch, maxhds_batch, max_nz_len \
                         in train_data.make_sparse_batch(self.batch_size):
 
                     num_batch += 1
+
                     _, loss_batch, _, event_batch, time_batch, mean_hd_reg_adxwon_batch, mean_hd_reg_adxlose_batch, mean_batch_loss_batch = sess.run([training_op, loss_mean,
                                                                   acc_update, event, time, mean_hd_reg_adxwon, mean_hd_reg_adxlose, mean_batch_loss],
                                                                    feed_dict={
@@ -208,6 +211,8 @@ class FactorizedParametricSurvival:
                     if epoch == 1:
                         print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
                               (epoch, num_batch, num_total_batches, loss_batch))
+                        print("                         time: %.4fs" % (nowtime() - start))
+                        start = nowtime()
 
 
                 # evaluation on training data
@@ -309,10 +314,10 @@ if __name__ == "__main__":
 
     model = FactorizedParametricSurvival(
         distribution = Distributions.LogLogisticDistribution(),
-                    batch_size = 128,
+                    batch_size = 2048,
                     num_epochs = 30,
                     k = 0,
-                    learning_rate=1e-3,
+                    learning_rate=1e-2,
                     lambda_linear=0.0,
                     lambda_factorized=0.0,
                     lambda_hd_adxwon=0.0,
