@@ -123,7 +123,7 @@ class ImpressionEntry:
                 for f in feats:
                     if f not in attr2idx[attr]:  # if the feature is the one that is skipped (for avoiding dummy variable trap)
                         continue
-                    vector.append(':'.join(map(str, [attr2idx[attr][f], 1])))
+                    vector.append(':'.join(map(str, [attr2idx[attr][f], 1.0 / len(feats)])))
             elif type(feats) == str:
                 if counter[attr][feats] < MIN_OCCURRENCE:
                     vector.append(':'.join(map(str, [attr2idx[attr][MIN_OCCURRENCE_SYMBOL], 1])))
