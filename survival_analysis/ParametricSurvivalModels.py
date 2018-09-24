@@ -193,13 +193,13 @@ class FactorizedParametricSurvival:
                                              'time:0': time_batch,
                                              'event:0': event_batch})
 
-                    print()
-                    print('mean_hd_reg_adxwon_batch')
-                    print(mean_hd_reg_adxwon_batch)
-                    print('mean_hd_reg_adxlose_batch')
-                    print(mean_hd_reg_adxlose_batch)
-                    print('mean_batch_loss_batch')
-                    print(mean_batch_loss_batch)
+                    # print()
+                    # print('mean_hd_reg_adxwon_batch')
+                    # print(mean_hd_reg_adxwon_batch)
+                    # print('mean_hd_reg_adxlose_batch')
+                    # print(mean_hd_reg_adxlose_batch)
+                    # print('mean_batch_loss_batch')
+                    # print(mean_batch_loss_batch)
                     # print("event_batch")
                     # print(event_batch)
                     # print('time_batch')
@@ -309,9 +309,9 @@ if __name__ == "__main__":
 
     model = FactorizedParametricSurvival(
         distribution = Distributions.LogLogisticDistribution(),
-                    batch_size = 512,
+                    batch_size = 128,
                     num_epochs = 30,
-                    k = 40,
+                    k = 0,
                     learning_rate=1e-3,
                     lambda_linear=0.0,
                     lambda_factorized=0.0,
