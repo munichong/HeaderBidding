@@ -12,20 +12,26 @@ class SurvivalData:
         self.times, self.events, self.sparse_features, self.sparse_headerbids = \
             times, events, sparse_features.tocsr(), sparse_headerbids.tocsr()
         self.num_instances = len(self.times)
+        self.max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]
 
     def make_sparse_batch(self, batch_size=20000):
         self.times, self.events, self.sparse_features, self.sparse_headerbids = \
             shuffle(self.times, self.events, self.sparse_features, self.sparse_headerbids)
-        max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]
 
         start_index = 0
         while start_index < self.num_instances:
             batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :]
             # padding
-            feat_indices_batch = [list(row) + [0.0] * (max_nonzero_len - len(row))
-                                  for row in np.split(batch_feat_mat.indices, batch_feat_mat.indptr)[1:-1]]
-            feat_values_batch = [list(row) + [0.0] * (max_nonzero_len - len(row))
-                                 for row in np.split(batch_feat_mat.data, batch_feat_mat.indptr)[1:-1]]
+            feat_indices_batch = [tf.pad(row,
+                                         tf.constant([[0, 0], [0, self.max_nonzero_len - len(row)]]),
+                                         "CONSTANT")
+                                  for row in np.split(batch_feat_mat.indices,
+                                                      batch_feat_mat.indptr)[1:-1]]
+            feat_values_batch = [tf.pad(row,
+                                        tf.constant([[0, 0], [0, self.max_nonzero_len - len(row)]]),
+                                        "CONSTANT")
+                                 for row in np.split(batch_feat_mat.data,
+                                                     batch_feat_mat.indptr)[1:-1]]
 
             batch_hd_mat = self.sparse_headerbids[start_index: start_index + batch_size, :]
             '''
@@ -48,7 +54,6 @@ class SurvivalData:
                     # if header bids are missing, use 0.0 instead.
                     min_hds_batch.append(0.0)
                     max_hds_batch.append(0.0)
-            # np.split(batch_hd_mat.indices, batch_hd_mat.indptr)[1:-1]
 
 
             yield self.times[start_index: start_index + batch_size], \
@@ -57,7 +62,7 @@ class SurvivalData:
                   feat_values_batch, \
                   min_hds_batch, \
                   max_hds_batch, \
-                  max_nonzero_len
+                  self.max_nonzero_len
             start_index += batch_size
 
 
