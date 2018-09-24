@@ -14,12 +14,13 @@ FEATURE_FIELDS = ['URIs_pageno', 'NaturalIDs', 'RefererURL', 'UserId',
                   'RequestLanguage', 'Country', 'Region', 'Metro', 'City',
                   'RequestedAdUnitSizes', 'AdPosition',
                   'CustomTargeting', ]
-
+MIN_OCCURRENCE = 5
+MIN_OCCURRENCE_SYMBOL = '<RARE>'
 
 class Vectorizer:
     def __init__(self):
         self.client = MongoClient()
-        self.counter = defaultdict(Counter)  # {Attribute1:set(feat1, feat2, ...), Attribute2: set(feat1, ...), ...}
+        self.counter = defaultdict(Counter)  # {Attribute1:Counter<features>, Attribute2:Counter<features>, ...}
 
     def fit(self, dbname, colname, ImpressionEntry):
         '''count unique attributes'''
@@ -48,7 +49,7 @@ class Vectorizer:
             #     print(imp_entry.doc)
             #     print()
 
-            for k, v in imp_entry.entry.items():
+            for k, v in imp_entry.entry.items():  # iterate all <fields:feature>
                 if type(v) == list:
                     self.counter[k].update(v)
                 elif type(v) == str:
@@ -61,7 +62,16 @@ class Vectorizer:
         self.attr2idx = defaultdict(dict)  # {Attribute1: dict(feat1:i, ...), Attribute2: dict(feat1:i, ...), ...}
         self.num_features = 0
         for attr, feat_counter in self.counter.items():
+            most_common_feature = self.counter[attr].most_common(1)[0][0]
             for feat in self.counter[attr]:
+                if feat == most_common_feature:  # skip the most common feature in each attribute to avoid dummy variable trap
+                    continue
+
+                if self.counter[attr][feat] < MIN_OCCURRENCE:
+                    if MIN_OCCURRENCE_SYMBOL in self.attr2idx[attr]:
+                        continue
+                    feat = MIN_OCCURRENCE_SYMBOL
+
                 self.attr2idx[attr][feat] = self.num_features
                 self.num_features += 1
 
@@ -73,7 +83,7 @@ class Vectorizer:
             return None, None
         header_bids = imp_entry.to_sparse_headerbids()
         # return target + imp_entry.to_full_feature_vector(self.num_features, self.attr2idx)
-        return target + imp_entry.to_sparse_feature_vector(self.attr2idx), header_bids
+        return target + imp_entry.to_sparse_feature_vector(self.attr2idx, self.counter), header_bids
 
 
     def transform(self, dbname, colname, ImpressionEntry):
@@ -126,8 +136,12 @@ if __name__ == "__main__":
     pprint(vectorizer.attr2idx)
     pprint(vectorizer.num_features)
 
+    # counter does NOT contain header bidding.
+    # counter contains the most common feature in each attribute
     pickle.dump(vectorizer.counter, open("../counter.dict", "wb"))
-    pickle.dump(vectorizer.attr2idx, open("../attr2idx.dict", "wb"))  # the dict does not contain header bidding.
+    # attr2idx does NOT contain header bidding.
+    # attr2idx does NOT contain the most common feature in each attribute
+    pickle.dump(vectorizer.attr2idx, open("../attr2idx.dict", "wb"))
 
     try:
         os.remove('../FeatVec_adxwon.csv')

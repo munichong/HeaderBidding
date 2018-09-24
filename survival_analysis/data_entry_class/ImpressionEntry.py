@@ -2,6 +2,9 @@ import csv, pandas as pd
 
 
 EMPTY = '<EMPTY>'
+MIN_OCCURRENCE = 5
+MIN_OCCURRENCE_SYMBOL = '<RARE>'
+
 AMZBID_MAPPING_PATH = '..\PricePoints-3038-display.csv'
 HEADER_BIDDING_KEYS = ('mnetbidprice',
                         'mnet_abd',
@@ -19,18 +22,22 @@ class ImpressionEntry:
     def build_entry(self):
         self.entry = {}
 
+        self.entry['NaturalIDs'] = self.filter_empty_str(self.doc['NaturalIDs'])
+        self.entry['UserId'] = self.filter_empty_str(self.doc['UserId'])
+        self.entry['RefererURL'] = self.filter_empty_str(self.filter_empty_str(self.doc['RefererURL']))
+
         self.entry['DeviceCategory'] = self.filter_empty_str(self.doc['DeviceCategory'])
         self.entry['MobileDevice'] = self.filter_empty_str(self.doc['MobileDevice'])
+        self.entry['OS'] = self.filter_empty_str(self.doc['OS'])
         self.entry['Browser'] = self.filter_empty_str(self.doc['Browser']).replace('Any.Any', '').strip()
         self.entry['BandWidth'] = self.filter_empty_str(self.doc['BandWidth'])
-        self.entry['OS'] = self.filter_empty_str(self.doc['OS'])
         # self.entry['MobileCarrier'] = self.filter_empty_str(self.doc['MobileCarrier'])
 
         self.entry['Time'] = str(self.doc['Time'].hour)
 
         # self.entry['RequestLanguage'] = self.filter_empty_str(self.doc['RequestLanguage'])
-        self.entry['Country'] = self.filter_empty_str(self.doc['Country'])
-        self.entry['Region'] = self.filter_empty_str(self.doc['Region'])
+        self.entry['Country_Region'] = '_'.join([self.filter_empty_str(self.doc['Country']),
+                                                 self.filter_empty_str(self.doc['Region'])])
         # self.entry['Metro'] = self.filter_empty_str(self.doc['Metro'])
         # self.entry['City'] = self.filter_empty_str(self.doc['City'])
 
@@ -59,8 +66,8 @@ class ImpressionEntry:
 
         feat['trend'] = ct['trend'].lower() if 'trend' in ct else EMPTY
         # feat['src'] = ct['src'].lower() if 'src' in ct else EMPTY
-        feat['type'] = ct['type'].lower() if 'type' in ct else EMPTY
-        feat['ht'] = ct['ht'].lower() if 'ht' in ct else EMPTY
+        # feat['type'] = ct['type'].lower() if 'type' in ct else EMPTY
+        # feat['ht'] = ct['ht'].lower() if 'ht' in ct else EMPTY
 
         # if max(self.get_headerbidding()) + 5 <= self.doc['SellerReservePrice']:
         #     print(self.doc['SellerReservePrice'], self.doc['CustomTargeting'])
@@ -109,14 +116,19 @@ class ImpressionEntry:
                 sparse_rep.append(':'.join(map(str, [i, hd])))
         return sparse_rep
 
-    def to_sparse_feature_vector(self, attr2idx):
+    def to_sparse_feature_vector(self, attr2idx, counter):
         vector = []
         for attr, feats in self.entry.items():
             if type(feats) == list:
                 for f in feats:
+                    if f not in attr2idx[attr]:  # if the feature is the one that is skipped (for avoiding dummy variable trap)
+                        continue
                     vector.append(':'.join(map(str, [attr2idx[attr][f], 1])))
             elif type(feats) == str:
-                vector.append(':'.join(map(str, [attr2idx[attr][feats], 1])))
+                if counter[attr][feats] < MIN_OCCURRENCE:
+                    vector.append(':'.join(map(str, [attr2idx[attr][MIN_OCCURRENCE_SYMBOL], 1])))
+                elif feats in attr2idx[attr]:  # if the feature is NOT the one that is skipped (for avoiding dummy variable trap)
+                    vector.append(':'.join(map(str, [attr2idx[attr][feats], 1])))
             else:
                 vector.append(':'.join(map(str, [attr2idx[attr][attr], feats])))
         # append header bids
