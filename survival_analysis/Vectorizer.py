@@ -100,26 +100,26 @@ class Vectorizer:
                 header_bids.clear()
 
             n += 1
-            feat_vector, hds = self.transform_one(doc, ImpressionEntry)
+            feat_vector, hbs = self.transform_one(doc, ImpressionEntry)
 
             if feat_vector:
                 matrix.append(feat_vector)
-                header_bids.append(hds)
+                header_bids.append(hbs)
 
         yield matrix, header_bids
         matrix.clear()
         header_bids.clear()
 
 
-def output_vector_files(featfile_path, hdfile_path, colname, ImpressionEntry):
-    with open(featfile_path, 'a', newline='\n') as outfile_feat, open(hdfile_path, 'a', newline='\n') as outfile_hd:
+def output_vector_files(featfile_path, hbfile_path, colname, ImpressionEntry):
+    with open(featfile_path, 'a', newline='\n') as outfile_feat, open(hbfile_path, 'a', newline='\n') as outfile_hb:
         writer_feat = csv.writer(outfile_feat, delimiter=',')
-        writer_hd = csv.writer(outfile_hd, delimiter=',')
+        writer_hb = csv.writer(outfile_hb, delimiter=',')
         writer_feat.writerow([vectorizer.num_features])  # the number of features WITH header bidding BUT WITHOUT 'duration', 'event', and header bids
-        writer_hd.writerow([len(HEADER_BIDDING_KEYS)])
-        for mat, hds in vectorizer.transform('Header_Bidding', colname, ImpressionEntry):
+        writer_hb.writerow([len(HEADER_BIDDING_KEYS)])
+        for mat, hbs in vectorizer.transform('Header_Bidding', colname, ImpressionEntry):
             writer_feat.writerows(mat)
-            writer_hd.writerows(hds)
+            writer_hb.writerows(hbs)
 
 
 
