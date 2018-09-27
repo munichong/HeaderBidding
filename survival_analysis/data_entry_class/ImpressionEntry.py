@@ -89,31 +89,31 @@ class ImpressionEntry:
 
     def has_headerbidding(self):
         ct = self.doc['CustomTargeting']
-        if any(hd in ct for hd in HEADER_BIDDING_KEYS if hd != 'amznbid') or ('amznbid' in ct and ct['amznbid'] in self.amzbid_mapping):
+        if any(hb in ct for hb in HEADER_BIDDING_KEYS if hb != 'amznbid') or ('amznbid' in ct and ct['amznbid'] in self.amzbid_mapping):
             return True
         return False
 
     def get_headerbids(self):
         ct = self.doc['CustomTargeting']
         header_bids = [None] * len(HEADER_BIDDING_KEYS)
-        for i, hd_key in enumerate(HEADER_BIDDING_KEYS):
-            if hd_key not in ct:
+        for i, hb_key in enumerate(HEADER_BIDDING_KEYS):
+            if hb_key not in ct:
                 continue
 
-            if hd_key == 'fb_bid_price_cents':
-                header_bids[i] = float(ct[hd_key]) / 100
-            elif hd_key == 'amznbid':
-                if ct[hd_key] in self.amzbid_mapping:
-                    header_bids[i] = self.amzbid_mapping[ct[hd_key]]
+            if hb_key == 'fb_bid_price_cents':
+                header_bids[i] = float(ct[hb_key]) / 100
+            elif hb_key == 'amznbid':
+                if ct[hb_key] in self.amzbid_mapping:
+                    header_bids[i] = self.amzbid_mapping[ct[hb_key]]
             else:
-                header_bids[i] = float(ct[hd_key])
+                header_bids[i] = float(ct[hb_key])
         return header_bids
 
     def to_sparse_headerbids(self):
         sparse_rep = []
-        for i, hd in enumerate(self.get_headerbids()):
-            if hd is not None:
-                sparse_rep.append(':'.join(map(str, [i, hd])))
+        for i, hb in enumerate(self.get_headerbids()):
+            if hb is not None:
+                sparse_rep.append(':'.join(map(str, [i, hb])))
         return sparse_rep
 
     def to_sparse_feature_vector(self, attr2idx, counter):
