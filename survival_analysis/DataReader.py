@@ -27,7 +27,7 @@ class SurvivalData:
             feat_indices_batch = pad_sequences(feat_indices_batch, maxlen=self.max_nonzero_len, padding='post', value=0)
             feat_values_batch = pad_sequences(feat_values_batch, maxlen=self.max_nonzero_len, padding='post', value=0)
 
-            batch_hd_mat = self.sparse_headerbids[start_index: start_index + batch_size, :]
+            batch_hb_mat = self.sparse_headerbids[start_index: start_index + batch_size, :]
             '''
             EXAMPLE of row (Array):
             [0.1]
@@ -38,24 +38,24 @@ class SurvivalData:
             []
             [0.12 0.03 0.22]
             '''
-            min_hds_batch = []
-            max_hds_batch = []
-            for row in np.split(batch_hd_mat.data, batch_hd_mat.indptr)[1:-1]:
+            min_hbs_batch = []
+            max_hbs_batch = []
+            for row in np.split(batch_hb_mat.data, batch_hb_mat.indptr)[1:-1]:
                 if row.size:
-                    min_hds_batch.append(min(row))
-                    max_hds_batch.append(max(row))
+                    min_hbs_batch.append(min(row))
+                    max_hbs_batch.append(max(row))
                 else:
                     # if header bids are missing, use 0.0 instead.
-                    min_hds_batch.append(0.0)
-                    max_hds_batch.append(0.0)
+                    min_hbs_batch.append(0.0)
+                    max_hbs_batch.append(0.0)
 
 
             yield self.times[start_index: start_index + batch_size], \
                   self.events[start_index: start_index + batch_size], \
                   feat_indices_batch, \
                   feat_values_batch, \
-                  min_hds_batch, \
-                  max_hds_batch, \
+                  min_hbs_batch, \
+                  max_hbs_batch, \
                   self.max_nonzero_len
             start_index += batch_size
 
