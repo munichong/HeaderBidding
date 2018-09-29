@@ -42,8 +42,8 @@ class SurvivalData:
             max_hbs_batch = []
             for row in np.split(batch_hb_mat.data, batch_hb_mat.indptr)[1:-1]:
                 if row.size:
-                    min_hbs_batch.append(min(row))
-                    max_hbs_batch.append(max(row))
+                    min_hbs_batch.append(round(min(row), 4))
+                    max_hbs_batch.append(round(max(row), 4))
                 else:
                     # if header bids are missing, use 0.0 instead.
                     min_hbs_batch.append(0.0)
