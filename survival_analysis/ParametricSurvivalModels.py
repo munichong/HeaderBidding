@@ -7,10 +7,10 @@ from survival_analysis import Distributions
 from survival_analysis.EvaluationMetrics import c_index
 from time import time as nowtime
 
-class FactorizedParametricSurvival:
+class ParametricSurvival:
 
     def __init__(self, distribution, batch_size, num_epochs, k, learning_rate=0.001,
-                 lambda_linear=0.0, lambda_factorized=0.0, lambda_hd_adxwon=0.0, lambda_hd_adxlose=0.0):
+                 lambda_linear=0.0, lambda_factorized=0.0, lambda_hb_adxwon=0.0, lambda_hb_adxlose=0.0):
         self.distribution = distribution
         self.batch_size = batch_size
         self.num_epochs = num_epochs
@@ -18,8 +18,8 @@ class FactorizedParametricSurvival:
         self.learning_rate = learning_rate
         self.lambda_linear = lambda_linear
         self.lambda_factorized = lambda_factorized
-        self.lambda_hd_adxwon = lambda_hd_adxwon
-        self.lambda_hd_adxlose = lambda_hd_adxlose
+        self.lambda_hb_adxwon = lambda_hb_adxwon
+        self.lambda_hb_adxlose = lambda_hb_adxlose
 
     def linear_function(self, weights_linear, intercept):
         return tf.reduce_sum(weights_linear, axis=-1) + intercept
@@ -45,11 +45,11 @@ class FactorizedParametricSurvival:
         feature_indice = tf.placeholder(tf.int32, name='feature_indice')
         feature_values = tf.placeholder(tf.float32, name='feature_values')
 
-        min_hds = tf.placeholder(tf.float32, name='min_headerbids')  # for regularization
-        max_hds = tf.placeholder(tf.float32, name='max_headerbids')  # for regularization
+        min_hbs = tf.placeholder(tf.float32, name='min_headerbids')  # for regularization
+        max_hbs = tf.placeholder(tf.float32, name='max_headerbids')  # for regularization
 
-        time = tf.placeholder(tf.float32, shape=[None], name='time')
-        event = tf.placeholder(tf.int32, shape=[None], name='event')
+        times = tf.placeholder(tf.float32, shape=[None], name='times')
+        events = tf.placeholder(tf.int32, shape=[None], name='events')
 
         # shape: (batch_size, max_nonzero_len)
         embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=1e-5))
@@ -74,7 +74,7 @@ class FactorizedParametricSurvival:
         if event == 0, right-censoring
         if event == 1, left-censoring 
         '''
-        not_survival_proba = self.distribution.left_censoring(time, scale)  # the left area
+        not_survival_proba = self.distribution.left_censoring(times, scale)  # the left area
 
 
         not_survival_bin = tf.where(tf.greater_equal(not_survival_proba, 0.5),
@@ -83,63 +83,80 @@ class FactorizedParametricSurvival:
 
         running_acc, acc_update = None, None
         if not sample_weights:
-            running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_bin)
+            running_acc, acc_update = tf.metrics.accuracy(labels=events, predictions=not_survival_bin)
         elif sample_weights == 'time':
-            running_acc, acc_update = tf.metrics.accuracy(labels=event, predictions=not_survival_bin, weights=time)
+            running_acc, acc_update = tf.metrics.accuracy(labels=events, predictions=not_survival_bin, weights=times)
 
         batch_loss = None
         if not sample_weights:
-            batch_loss = tf.losses.log_loss(labels=event, predictions=not_survival_proba)
+            batch_loss = tf.losses.log_loss(labels=events, predictions=not_survival_proba)
         elif sample_weights == 'time':
-            batch_loss = tf.losses.log_loss(labels=event, predictions=not_survival_proba, weights=time)
+            batch_loss = tf.losses.log_loss(labels=events, predictions=not_survival_proba, weights=times)
         running_loss, loss_update = tf.metrics.mean(batch_loss)
         mean_batch_loss = tf.reduce_mean(batch_loss)
 
 
         # Header Bidding Regularization
-        hd_adxwon_partitions = tf.cast(
-            tf.logical_and(tf.equal(event, 0),  # adx won
+        hb_adxwon_partitions = tf.cast(
+            tf.logical_and(tf.equal(events, 0),  # adx won
                            tf.logical_and(
-                               tf.not_equal(0.0, max_hds),  # the max_hd is not missing
-                               tf.less(time, max_hds)  # the max hd > the revenue
+                               tf.not_equal(0.0, max_hbs),  # the max_hb is not missing
+                               # tf.less(time, max_hbs)
+                               tf.logical_and(tf.less(times, max_hbs),  # the max hb > the revenue
+                                              # tf.less(max_hbs - time, 1.0)  # remove the outliers
+                                              tf.less((max_hbs - times) / times, 0.01)
+                                              # tf.logical_and(
+                                              #     tf.less((max_hbs - times) / times, 0.01),
+                                              #     tf.less(times, 10.0)
+                                              # )
+                                              )
                            )
                            ), tf.int32)
-        hd_adxlose_partitions = tf.cast(
-            tf.logical_and(tf.equal(event, 1),  # adx lose
+        hb_adxlose_partitions = tf.cast(
+            tf.logical_and(tf.equal(events, 1),  # adx lose
                            tf.logical_and(
-                               tf.not_equal(0.0, min_hds),  # the min_hd is not missing
-                               tf.less(min_hds, time)  # the min hd < the floor
+                               tf.not_equal(0.0, min_hbs),  # the min_hb is not missing
+                               # tf.less(min_hbs, times)  # the min hb < the floor
+                               tf.logical_and(tf.less(min_hbs, times),  # the max hb > the revenue
+                                              # tf.less(max_hbs - time, 1.0)  # remove the outliers
+                                              tf.less(0.9, (times - min_hbs) / times)
+                                              # tf.logical_and(
+                                              #     tf.less(0.1, (times - min_hbs) / times),
+                                              #     tf.less(times, 10.0)
+                                              # )
+                                              )
                            )
                            ), tf.int32)
 
         # Using boolean_mask instead of dynamic_partition leads to:
         # "UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory."
         # https://stackoverflow.com/questions/44380727/get-userwarning-while-i-use-tf-boolean-mask?noredirect=1&lq=1
-        regable_hd_adxwon = tf.dynamic_partition(max_hds, hd_adxwon_partitions, 2)[1]
-        regable_hd_adxlose = tf.dynamic_partition(min_hds, hd_adxlose_partitions, 2)[1]
-        regable_scale_adxwon = tf.dynamic_partition(scale, hd_adxwon_partitions, 2)[1]
-        regable_scale_adxlose = tf.dynamic_partition(scale, hd_adxlose_partitions, 2)[1]
+        regable_hb_adxwon = tf.dynamic_partition(max_hbs, hb_adxwon_partitions, 2)[1]
+        regable_hb_adxlose = tf.dynamic_partition(min_hbs, hb_adxlose_partitions, 2)[1]
+        regable_scale_adxwon = tf.dynamic_partition(scale, hb_adxwon_partitions, 2)[1]
+        regable_scale_adxlose = tf.dynamic_partition(scale, hb_adxlose_partitions, 2)[1]
 
-        hd_adxwon_pred = self.distribution.left_censoring(regable_hd_adxwon, regable_scale_adxwon)
-        hd_adxlose_pred = self.distribution.left_censoring(regable_hd_adxlose, regable_scale_adxlose)
+        hb_adxwon_pred = self.distribution.left_censoring(regable_hb_adxwon, regable_scale_adxwon)
+        hb_adxlose_pred = self.distribution.left_censoring(regable_hb_adxlose, regable_scale_adxlose)
 
-        hd_reg_adxwon, hd_reg_adxlose = None, None
+        hb_reg_adxwon, hb_reg_adxlose = None, None
         if not sample_weights:
-            hd_reg_adxwon = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_adxwon_pred)),
-                                               predictions=hd_adxwon_pred)
-            hd_reg_adxlose = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_adxlose_pred)),
-                                                predictions=hd_adxlose_pred)
+        # if True:
+            hb_reg_adxwon = tf.losses.log_loss(labels=tf.zeros(tf.shape(hb_adxwon_pred)),
+                                               predictions=hb_adxwon_pred)
+            hb_reg_adxlose = tf.losses.log_loss(labels=tf.zeros(tf.shape(hb_adxlose_pred)),
+                                                predictions=hb_adxlose_pred)
         elif sample_weights == 'time':
-            regable_time_adxwon = tf.dynamic_partition(time, hd_adxwon_partitions, 2)[1]
-            regable_time_adxlose = tf.dynamic_partition(time, hd_adxlose_partitions, 2)[1]
-            hd_reg_adxwon = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_adxwon_pred)),
-                                               predictions=hd_adxwon_pred,
-                                               weights=regable_time_adxwon)
-            hd_reg_adxlose = tf.losses.log_loss(labels=tf.zeros(tf.shape(hd_adxlose_pred)),
-                                                predictions=hd_adxlose_pred,
-                                                weights=regable_time_adxlose)
-        mean_hd_reg_adxwon = tf.reduce_mean(hd_reg_adxwon)
-        mean_hd_reg_adxlose = tf.reduce_mean(hd_reg_adxlose)
+            regable_time_adxwon = tf.dynamic_partition(times, hb_adxwon_partitions, 2)[1]
+            regable_time_adxlose = tf.dynamic_partition(times, hb_adxlose_partitions, 2)[1]
+            hb_reg_adxwon = tf.losses.log_loss(labels=tf.zeros(tf.shape(hb_adxwon_pred)),
+                                               predictions=hb_adxwon_pred,
+                                               weights=1.0 / regable_time_adxwon)
+            hb_reg_adxlose = tf.losses.log_loss(labels=tf.zeros(tf.shape(hb_adxlose_pred)),
+                                                predictions=hb_adxlose_pred,
+                                                weights=1.0 / regable_time_adxlose)
+        mean_hb_reg_adxwon = tf.reduce_mean(hb_reg_adxwon)
+        mean_hb_reg_adxlose = tf.reduce_mean(hb_reg_adxlose)
 
 
         # L2 regularized sum of squares loss function over the embeddings
@@ -150,8 +167,8 @@ class FactorizedParametricSurvival:
 
 
         loss_mean = mean_batch_loss + \
-                    tf.constant(self.lambda_hd_adxwon) * mean_hd_reg_adxwon + \
-                    tf.constant(self.lambda_hd_adxlose) * mean_hd_reg_adxlose + \
+                    tf.constant(self.lambda_hb_adxwon) * mean_hb_reg_adxwon + \
+                    tf.constant(self.lambda_hb_adxlose) * mean_hb_reg_adxlose + \
                     sum_l2_norm
         # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
 
@@ -181,26 +198,26 @@ class FactorizedParametricSurvival:
                 # model training
                 num_batch = 0
                 start = nowtime()
-                for time_batch, event_batch, featidx_batch, featval_batch, minhds_natch, maxhds_batch, max_nz_len \
+                for time_batch, event_batch, featidx_batch, featval_batch, minhbs_natch, maxhbs_batch, max_nz_len \
                         in train_data.make_sparse_batch(self.batch_size):
 
                     num_batch += 1
 
-                    _, loss_batch, _, event_batch, time_batch, mean_hd_reg_adxwon_batch, mean_hd_reg_adxlose_batch, mean_batch_loss_batch = sess.run([training_op, loss_mean,
-                                                                  acc_update, event, time, mean_hd_reg_adxwon, mean_hd_reg_adxlose, mean_batch_loss],
+                    _, loss_batch, _, event_batch, time_batch, mean_hb_reg_adxwon_batch, mean_hb_reg_adxlose_batch, mean_batch_loss_batch = sess.run([training_op, loss_mean,
+                                                                  acc_update, events, times, mean_hb_reg_adxwon, mean_hb_reg_adxlose, mean_batch_loss],
                                                                    feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
-                                             'min_headerbids:0': minhds_natch,
-                                             'max_headerbids:0': maxhds_batch,
-                                             'time:0': time_batch,
-                                             'event:0': event_batch})
+                                             'min_headerbids:0': minhbs_natch,
+                                             'max_headerbids:0': maxhbs_batch,
+                                             'times:0': time_batch,
+                                             'events:0': event_batch})
 
                     # print()
-                    # print('mean_hd_reg_adxwon_batch')
-                    # print(mean_hd_reg_adxwon_batch)
-                    # print('mean_hd_reg_adxlose_batch')
-                    # print(mean_hd_reg_adxlose_batch)
+                    # print('mean_hb_reg_adxwon_batch')
+                    # print(mean_hb_reg_adxwon_batch)
+                    # print('mean_hb_reg_adxlose_batch')
+                    # print(mean_hb_reg_adxlose_batch)
                     # print('mean_batch_loss_batch')
                     # print(mean_batch_loss_batch)
                     # print("event_batch")
@@ -279,14 +296,14 @@ class FactorizedParametricSurvival:
         all_events = []
         all_times = []
         sess.run(running_init)
-        for time_batch, event_batch, featidx_batch, featval_batch, minhds_natch, maxhds_batch, max_nz_len in next_batch:
+        for time_batch, event_batch, featidx_batch, featval_batch, minhbs_natch, maxhbs_batch, max_nz_len in next_batch:
             _, _, not_survival  = sess.run(updates, feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
-                                             'min_headerbids:0': minhds_natch,
-                                             'max_headerbids:0': maxhds_batch,
-                                             'time:0': time_batch,
-                                             'event:0': event_batch})
+                                             'min_headerbids:0': minhbs_natch,
+                                             'max_headerbids:0': maxhbs_batch,
+                                             'times:0': time_batch,
+                                             'events:0': event_batch})
             all_not_survival.extend(not_survival)
             all_events.extend(event_batch)
             all_times.extend(time_batch)
@@ -312,17 +329,18 @@ if __name__ == "__main__":
         ''' The first line is the total number of unique features '''
         num_features = int(f.readline())
 
-    model = FactorizedParametricSurvival(
-        distribution = Distributions.LogLogisticDistribution(),
-                    batch_size = 2048,
-                    num_epochs = 30,
-                    k = 0,
-                    learning_rate=1e-2,
-                    lambda_linear=0.0,
-                    lambda_factorized=0.0,
-                    lambda_hd_adxwon=0.0,
-                    lambda_hd_adxlose=0.0
-                    )
+    model = ParametricSurvival(
+        distribution=Distributions.LogLogisticDistribution(),
+        batch_size=2048,
+        num_epochs=10,
+        k=40,
+        learning_rate=1e-3,
+        lambda_linear=0.0,
+        lambda_factorized=0.0,
+        lambda_hb_adxwon=0.1,
+        lambda_hb_adxlose=0.0
+    )
+
     print('Start training...')
     model.run_graph(num_features,
                     SurvivalData(*pickle.load(open('../TRAIN_SET.p', 'rb'))),
