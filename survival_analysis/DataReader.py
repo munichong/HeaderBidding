@@ -14,7 +14,7 @@ class SurvivalData:
         self.num_instances = len(self.times)
         self.max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]  # 94
 
-    def make_sparse_batch(self, batch_size=20000):
+    def make_sparse_batch(self, batch_size=10000):
         self.times, self.events, self.sparse_features, self.sparse_headerbids = \
             shuffle(self.times, self.events, self.sparse_features, self.sparse_headerbids)
 

@@ -101,30 +101,35 @@ class ParametricSurvival:
             tf.logical_and(tf.equal(events, 0),  # adx won
                            tf.logical_and(
                                tf.not_equal(0.0, max_hbs),  # the max_hb is not missing
-                               # tf.less(time, max_hbs)
-                               tf.logical_and(tf.less(times, max_hbs),  # the max hb > the revenue
-                                              # tf.less(max_hbs - time, 1.0)  # remove the outliers
-                                              tf.less((max_hbs - times) / times, 0.01)
-                                              # tf.logical_and(
-                                              #     tf.less((max_hbs - times) / times, 0.01),
-                                              #     tf.less(times, 10.0)
-                                              # )
-                                              )
+                               tf.less(times, max_hbs)
+                               # tf.less(times, min_hbs),
+                               # tf.logical_and(
+                               #                                #     # tf.less(times, max_hbs),  # the max hb > the revenue
+                               #                                #                # tf.less(max_hbs - time, 1.0)  # remove the outliers
+                               #                                #                tf.less(times, min_hbs),
+                               #                                #                tf.less((max_hbs - times) / times, 0.01)
+                               #                                #                # tf.logical_and(
+                               #                                #                #     tf.less((max_hbs - times) / times, 0.01),
+                               #                                #                #     tf.less(times, 10.0)
+                               #                                #                # )
+                               #                                #                )
                            )
                            ), tf.int32)
         hb_adxlose_partitions = tf.cast(
             tf.logical_and(tf.equal(events, 1),  # adx lose
                            tf.logical_and(
                                tf.not_equal(0.0, min_hbs),  # the min_hb is not missing
-                               # tf.less(min_hbs, times)  # the min hb < the floor
-                               tf.logical_and(tf.less(min_hbs, times),  # the max hb > the revenue
-                                              # tf.less(max_hbs - time, 1.0)  # remove the outliers
-                                              tf.less(0.9, (times - min_hbs) / times)
-                                              # tf.logical_and(
-                                              #     tf.less(0.1, (times - min_hbs) / times),
-                                              #     tf.less(times, 10.0)
-                                              # )
-                                              )
+                               tf.less(min_hbs, times)  # the min hb < the floor
+                               # tf.less(max_hbs, times),
+                               # tf.logical_and(
+                               #                tf.less(min_hbs, times),
+                               #                # tf.less(max_hbs - time, 1.0)  # remove the outliers
+                               #                tf.less(0.9, (times - min_hbs) / times)
+                               #                # tf.logical_and(
+                               #                #     tf.less(0.1, (times - min_hbs) / times),
+                               #                #     tf.less(times, 10.0)
+                               #                # )
+                               #                )
                            )
                            ), tf.int32)
 
@@ -149,7 +154,7 @@ class ParametricSurvival:
         elif sample_weights == 'time':
             regable_time_adxwon = tf.dynamic_partition(times, hb_adxwon_partitions, 2)[1]
             regable_time_adxlose = tf.dynamic_partition(times, hb_adxlose_partitions, 2)[1]
-            hb_reg_adxwon = tf.losses.log_loss(labels=tf.zeros(tf.shape(hb_adxwon_pred)),
+            hb_reg_adxwon = tf.losses.log_loss(labels=tf.ones(tf.shape(hb_adxwon_pred)),
                                                predictions=hb_adxwon_pred,
                                                weights=1.0 / regable_time_adxwon)
             hb_reg_adxlose = tf.losses.log_loss(labels=tf.zeros(tf.shape(hb_adxlose_pred)),
@@ -333,12 +338,12 @@ if __name__ == "__main__":
         distribution=Distributions.LogLogisticDistribution(),
         batch_size=2048,
         num_epochs=10,
-        k=40,
+        k=80,
         learning_rate=1e-3,
-        lambda_linear=0.0,
-        lambda_factorized=0.0,
-        lambda_hb_adxwon=0.1,
-        lambda_hb_adxlose=0.0
+        lambda_linear=1e-7,
+        lambda_factorized=1e-7,
+        lambda_hb_adxwon=1e-4,
+        lambda_hb_adxlose=1e-4
     )
 
     print('Start training...')
