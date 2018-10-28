@@ -70,6 +70,8 @@ class ParametricSurvival:
 
         scale = tf.nn.softplus(scale)
 
+        # scale = tf.Variable(0.1)
+
         ''' 
         if event == 0, right-censoring
         if event == 1, left-censoring 
@@ -89,11 +91,12 @@ class ParametricSurvival:
 
         batch_loss = None
         if not sample_weights:
-            batch_loss = tf.losses.log_loss(labels=events, predictions=not_survival_proba)
+            batch_loss = tf.losses.log_loss(labels=events, predictions=not_survival_proba,
+                                            reduction = tf.losses.Reduction.MEAN)
         elif sample_weights == 'time':
-            batch_loss = tf.losses.log_loss(labels=events, predictions=not_survival_proba, weights=times)
+            batch_loss = tf.losses.log_loss(labels=events, predictions=not_survival_proba, weights=times,
+                                            reduction = tf.losses.Reduction.MEAN)
         running_loss, loss_update = tf.metrics.mean(batch_loss)
-        mean_batch_loss = tf.reduce_mean(batch_loss)
 
 
         # Header Bidding Regularization
@@ -171,7 +174,7 @@ class ParametricSurvival:
         sum_l2_norm = tf.constant(self.lambda_factorized) * tf.reduce_sum(l2_norm)
 
 
-        loss_mean = mean_batch_loss + \
+        loss_mean = batch_loss + \
                     tf.constant(self.lambda_hb_adxwon) * mean_hb_reg_adxwon + \
                     tf.constant(self.lambda_hb_adxlose) * mean_hb_reg_adxlose + \
                     sum_l2_norm
@@ -208,8 +211,8 @@ class ParametricSurvival:
 
                     num_batch += 1
 
-                    _, loss_batch, _, event_batch, time_batch, mean_hb_reg_adxwon_batch, mean_hb_reg_adxlose_batch, mean_batch_loss_batch = sess.run([training_op, loss_mean,
-                                                                  acc_update, events, times, mean_hb_reg_adxwon, mean_hb_reg_adxlose, mean_batch_loss],
+                    _, loss_batch, _, event_batch, time_batch = sess.run([training_op, loss_mean,
+                                                                  acc_update, events, times],
                                                                    feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
@@ -247,7 +250,7 @@ class ParametricSurvival:
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
                                                                  sample_weights)
-                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_train, acc_train))
+                # print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_train, acc_train))
 
                 # evaluation on validation data
                 print('*** On Validation Set:')
@@ -255,8 +258,8 @@ class ParametricSurvival:
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
-                print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
-                print("Validation C-Index = %.4f" % c_index(not_survival_val, events_val, times_val))
+                # print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
+                print("Validation C-Index = %.4f" % c_index(events_val, not_survival_val, times_val))
 
 
 
@@ -271,8 +274,8 @@ class ParametricSurvival:
                         running_vars_initializer, sess,
                         eval_nodes_update, eval_nodes_metric,
                         sample_weights)
-                    print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
-                    print("TEST C-Index = %.4f" % c_index(not_survival_test, events_test, times_test))
+                    # print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
+                    print("TEST C-Index = %.4f" % c_index(events_test, not_survival_test, times_test))
 
 
                     # Store prediction results
