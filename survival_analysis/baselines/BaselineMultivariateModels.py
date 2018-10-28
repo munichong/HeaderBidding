@@ -1,16 +1,20 @@
 import numpy as np, pandas as pd
 from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
-
+from survival_analysis.EvaluationMetrics import c_index
+from scipy.sparse import hstack
 
 class MultivariateSGDLogisticRegression:
 
     def __init__(self):
         self.lr = SGDClassifier(loss='log', penalty='none', max_iter=1000, tol=1e-3)
 
-    def partial_fit(self, training_data):
-        for times_train, events_train, features_train in training_data.make_batch(10000):
-            times_features_train = np.concatenate((np.expand_dims(times_train, axis=1), features_train), axis=1)
+    def partial_fit(self, training_data, batch_size=10000):
+        num_batches = 0
+        for times_train, events_train, features_train in training_data.get_sparse_feat_vec_batch(batch_size):
+            num_batches += 1
+            print(num_batches, '/',  int(np.ceil(len(training_data.times) / batch_size)))
+            times_features_train = hstack((np.expand_dims(times_train, axis=1), features_train))
             self.lr.partial_fit(times_features_train, events_train, classes=[0, 1])
         return self
 
@@ -24,20 +28,24 @@ class MultivariateSGDLogisticRegression:
         y_proba_pred = []
         y_bin_pred = []
         y_bin_true = []
+        all_times = []
         weights = []
-        for times, events, features in data.make_batch(10000):
-            times_features = np.concatenate((np.expand_dims(times, axis=1), features), axis=1)
+        for times, events, features in data.get_sparse_feat_vec_batch(10000):
+            times_features = hstack((np.expand_dims(times, axis=1), features))
             y_bin_true.extend(events)
             y_proba_pred.extend(self.predict_proba(times_features)[:,1])
             y_bin_pred.extend(self.predict(times_features))
             weights.extend(times)
+            all_times.extend(times)
+
+        print(all_times)
 
         if not sample_weights:
             return log_loss(y_bin_true, y_proba_pred), \
-                   roc_auc_score(y_bin_true, y_proba_pred), \
+                   c_index(y_bin_true, y_proba_pred, all_times), \
                    accuracy_score(y_bin_true, y_bin_pred)
         else:
             return log_loss(y_bin_true, y_proba_pred, sample_weight=weights), \
-                   roc_auc_score(y_bin_true, y_proba_pred, sample_weight=weights), \
+                   c_index(y_bin_true, y_proba_pred, all_times), \
                    accuracy_score(y_bin_true, y_bin_pred, sample_weight=weights)
 

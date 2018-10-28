@@ -14,6 +14,18 @@ class SurvivalData:
         self.num_instances = len(self.times)
         self.max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]  # 94
 
+    def get_sparse_feat_vec_batch(self, batch_size=100):
+        self.times, self.events, self.sparse_features, self.sparse_headerbids = \
+            shuffle(self.times, self.events, self.sparse_features, self.sparse_headerbids)
+
+        start_index = 0
+        while start_index < self.num_instances:
+
+            yield self.times[start_index: start_index + batch_size], \
+                  self.events[start_index: start_index + batch_size], \
+                  self.sparse_features[start_index: start_index + batch_size, :]
+            start_index += batch_size
+
     def make_sparse_batch(self, batch_size=10000):
         self.times, self.events, self.sparse_features, self.sparse_headerbids = \
             shuffle(self.times, self.events, self.sparse_features, self.sparse_headerbids)
@@ -62,8 +74,11 @@ class SurvivalData:
 
 
 if __name__ == "__main__":
-    times, events, sparse_features, sparse_headerbids = pickle.load(open('../Vectors_train.p', 'rb'))
+    times, events, sparse_features, sparse_headerbids = pickle.load(open('../TRAIN_SET.p', 'rb'))
     s = SurvivalData(times, events, sparse_features, sparse_headerbids)
+
+    s.get_dense_feat_vec_batch(10)
+
     for t, e, f_ind, f_val, h_ind, h_val, max_nonzero_len in s.make_sparse_batch(10):
         print(t)
         print(e)
