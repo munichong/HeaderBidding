@@ -7,7 +7,9 @@ from scipy.sparse import hstack
 class MultivariateSGDLogisticRegression:
 
     def __init__(self):
-        self.lr = SGDClassifier(loss='log', penalty='none', max_iter=1000, tol=1e-3)
+        self.lr = SGDClassifier(loss='log', penalty='l2', max_iter=10000, tol=1e-5,
+                                # eta0=0.01, learning_rate='constant'
+                                )
 
     def partial_fit(self, training_data, batch_size=10000):
         num_batches = 0
@@ -37,6 +39,9 @@ class MultivariateSGDLogisticRegression:
             y_bin_pred.extend(self.predict(times_features))
             weights.extend(times)
             all_times.extend(times)
+
+        # Just for test, avoid slow c-index
+        return log_loss(y_bin_true, y_proba_pred), 0.0, accuracy_score(y_bin_true, y_bin_pred)
 
         if not sample_weights:
             return log_loss(y_bin_true, y_proba_pred), \
