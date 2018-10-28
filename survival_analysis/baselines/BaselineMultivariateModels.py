@@ -38,8 +38,6 @@ class MultivariateSGDLogisticRegression:
             weights.extend(times)
             all_times.extend(times)
 
-        print(all_times)
-
         if not sample_weights:
             return log_loss(y_bin_true, y_proba_pred), \
                    c_index(y_bin_true, y_proba_pred, all_times), \
