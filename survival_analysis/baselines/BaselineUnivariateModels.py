@@ -49,6 +49,11 @@ class KaplanMeier:
     def evaluate(self, X, y_bin_true, sample_weights=None):
         y_proba_pred = self.predict_proba(X)
         y_bin_pred = np.where(y_proba_pred>=0.5, 1.0, 0.0)
+
+        # return log_loss(y_bin_true, y_proba_pred, sample_weight=sample_weights), \
+        #        0.0, \
+        #        accuracy_score(y_bin_true, y_bin_pred, sample_weight=sample_weights)
+
         return log_loss(y_bin_true, y_proba_pred, sample_weight=sample_weights), \
                c_index(y_bin_true, y_proba_pred, np.squeeze(X)), \
                accuracy_score(y_bin_true, y_bin_pred, sample_weight=sample_weights)
