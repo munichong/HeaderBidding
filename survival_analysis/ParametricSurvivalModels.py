@@ -338,7 +338,7 @@ if __name__ == "__main__":
         num_features = int(f.readline())
 
     model = ParametricSurvival(
-        distribution=Distributions.LogLogisticDistribution(),
+        distribution=Distributions.WeibullDistribution(),
         batch_size=2048,
         num_epochs=10,
         k=80,
