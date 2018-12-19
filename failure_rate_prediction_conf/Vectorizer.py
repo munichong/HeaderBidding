@@ -14,12 +14,13 @@ FEATURE_FIELDS = ['URIs_pageno', 'NaturalIDs', 'RefererURL', 'UserId',
                   'RequestLanguage', 'Country', 'Region', 'Metro', 'City',
                   'RequestedAdUnitSizes', 'AdPosition',
                   'CustomTargeting', ]
-
+MIN_OCCURRENCE = 5
+MIN_OCCURRENCE_SYMBOL = '<RARE>'
 
 class Vectorizer:
     def __init__(self):
         self.client = MongoClient()
-        self.counter = defaultdict(Counter)  # {Attribute1:set(feat1, feat2, ...), Attribute2: set(feat1, ...), ...}
+        self.counter = defaultdict(Counter)  # {Attribute1:Counter<features>, Attribute2:Counter<features>, ...}
 
     def fit(self, dbname, colname, ImpressionEntry):
         '''count unique attributes'''
@@ -48,7 +49,7 @@ class Vectorizer:
             #     print(imp_entry.doc)
             #     print()
 
-            for k, v in imp_entry.entry.items():
+            for k, v in imp_entry.entry.items():  # iterate all <fields:feature>
                 if type(v) == list:
                     self.counter[k].update(v)
                 elif type(v) == str:
@@ -61,7 +62,16 @@ class Vectorizer:
         self.attr2idx = defaultdict(dict)  # {Attribute1: dict(feat1:i, ...), Attribute2: dict(feat1:i, ...), ...}
         self.num_features = 0
         for attr, feat_counter in self.counter.items():
+            most_common_feature = self.counter[attr].most_common(1)[0][0]
             for feat in self.counter[attr]:
+                if feat == most_common_feature:  # skip the most common feature in each attribute to avoid dummy variable trap
+                    continue
+
+                if self.counter[attr][feat] < MIN_OCCURRENCE:
+                    if MIN_OCCURRENCE_SYMBOL in self.attr2idx[attr]:
+                        continue
+                    feat = MIN_OCCURRENCE_SYMBOL
+
                 self.attr2idx[attr][feat] = self.num_features
                 self.num_features += 1
 
@@ -70,10 +80,10 @@ class Vectorizer:
         imp_entry.build_entry()
         target = imp_entry.get_target()
         if not imp_entry.is_qualified() or not target:
-            return None
-
+            return None, None
+        header_bids = imp_entry.to_sparse_headerbids()
         # return target + imp_entry.to_full_feature_vector(self.num_features, self.attr2idx)
-        return target + imp_entry.to_sparse_feature_vector(self.num_features, self.attr2idx)
+        return target + imp_entry.to_sparse_feature_vector(self.attr2idx, self.counter), header_bids
 
 
     def transform(self, dbname, colname, ImpressionEntry):
@@ -81,47 +91,71 @@ class Vectorizer:
         n = 0
         total_entries = self.col.find().count()
         matrix = []
+        header_bids = []
         for doc in self.col.find(projection=FEATURE_FIELDS):
             if n % 1000000 == 0:
                 print('%d/%d' % (n, total_entries))
-                yield matrix
+                yield matrix, header_bids
                 matrix.clear()
+                header_bids.clear()
 
             n += 1
-            vector = self.transform_one(doc, ImpressionEntry)
-            if vector:
-                matrix.append(vector)
+            feat_vector, hbs = self.transform_one(doc, ImpressionEntry)
 
-        yield matrix
+            if feat_vector:
+                matrix.append(feat_vector)
+                header_bids.append(hbs)
+
+        yield matrix, header_bids
         matrix.clear()
+        header_bids.clear()
 
 
-def output_vector_files(path, colname, ImpressionEntry):
-    with open(path, 'a', newline='\n') as outfile:
-        writer = csv.writer(outfile, delimiter=',')
-        writer.writerow([vectorizer.num_features + len(HEADER_BIDDING_KEYS)])  # the number of features WITH header bidding BUT WITHOUT 'duration' and 'event'
-        for mat in vectorizer.transform('Header_Bidding', colname, ImpressionEntry):
-            writer.writerows(mat)
+def output_vector_files(featfile_path, hbfile_path, colname, ImpressionEntry):
+    with open(featfile_path, 'a', newline='\n') as outfile_feat, open(hbfile_path, 'a', newline='\n') as outfile_hb:
+        writer_feat = csv.writer(outfile_feat, delimiter=',')
+        writer_hb = csv.writer(outfile_hb, delimiter=',')
+        writer_feat.writerow([vectorizer.num_features])  # the number of features WITH header bidding BUT WITHOUT 'duration', 'event', and header bids
+        writer_hb.writerow([len(HEADER_BIDDING_KEYS)])
+        for mat, hbs in vectorizer.transform('Header_Bidding', colname, ImpressionEntry):
+            writer_feat.writerows(mat)
+            writer_hb.writerows(hbs)
+
 
 
 if __name__ == "__main__":
     vectorizer = Vectorizer()
+    print('Fitting NetworkBackfillImpressions...')
     vectorizer.fit('Header_Bidding', 'NetworkBackfillImpressions', NetworkBackfillImpressionEntry)
     pprint(vectorizer.counter)
+    print()
+    print('Fitting NetworkImpressions...')
     vectorizer.fit('Header_Bidding', 'NetworkImpressions', NetworkImpressionEntry)
     vectorizer.build_attr2idx()
     pprint(vectorizer.counter)
     pprint(vectorizer.attr2idx)
     pprint(vectorizer.num_features)
 
+    # counter does NOT contain header bidding.
+    # counter contains the most common feature in each attribute
     pickle.dump(vectorizer.counter, open("../counter.dict", "wb"))
-    pickle.dump(vectorizer.attr2idx, open("../attr2idx.dict", "wb"))  # the dict does not contain header bidding.
+    # attr2idx does NOT contain header bidding.
+    # attr2idx does NOT contain the most common feature in each attribute
+    pickle.dump(vectorizer.attr2idx, open("../attr2idx.dict", "wb"))
 
     try:
-        os.remove('../Vectors_adxwon.csv')
-        os.remove('../Vectors_adxlose.csv')
+        os.remove('../FeatVec_adxwon.csv')
+        os.remove('../FeatVec_adxlose.csv')
+        os.remove('../HeaderBids_adxwon.csv')
+        os.remove('../HeaderBids_adxlose.csv')
     except OSError:
         pass
 
-    output_vector_files('../Vectors_adxwon.csv', 'NetworkBackfillImpressions', NetworkBackfillImpressionEntry)
-    output_vector_files('../Vectors_adxlose.csv', 'NetworkImpressions', NetworkImpressionEntry)
+    output_vector_files('../FeatVec_adxwon.csv',
+                        '../HeaderBids_adxwon.csv',
+                        'NetworkBackfillImpressions',
+                        NetworkBackfillImpressionEntry)
+    output_vector_files('../FeatVec_adxlose.csv',
+                        '../HeaderBids_adxlose.csv',
+                        'NetworkImpressions',
+                        NetworkImpressionEntry)

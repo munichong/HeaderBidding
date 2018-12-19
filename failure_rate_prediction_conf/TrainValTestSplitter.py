@@ -1,82 +1,134 @@
 import csv, random, numpy as np, pickle
-from random import shuffle
 from scipy.sparse import coo_matrix
+from survival_analysis.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
 
-ADXWON_INFILE_PATH, ADXLOSE_INFILE_PATH = '../Vectors_adxwon.csv', '../Vectors_adxlose.csv'
-TRAIN_OUTCSV_PATH, VAL_OUTCSV_PATH, TEST_OUTCSV_PATH = '../Vectors_train.csv', '../Vectors_val.csv', '../Vectors_test.csv'
-TRAIN_OUTPKL_PATH, VAL_OUTPKL_PATH, TEST_OUTPKL_PATH = '../Vectors_train.p', '../Vectors_val.p', '../Vectors_test.p'
+ADXWON_FEATVEC_IN_PATH, ADXLOSE_FEATVEC_IN_PATH = '../FeatVec_adxwon.csv', '../FeatVec_adxlose.csv'
+ADXWON_hb_IN_PATH, ADXLOSE_hb_IN_PATH = '../HeaderBids_adxwon.csv', '../HeaderBids_adxlose.csv'
+
+TRAIN_TMPOUT_STEMPATH, VAL_TMPOUT_STEMPATH, TEST_TMPOUT_STEMPATH = '../train_tmp', '../val_tmp', '../test_tmp'
+
+TRAIN_OUT_PATH, VAL_OUT_PATH, TEST_OUT_PATH = '../TRAIN_SET.p', '../VAL_SET.p', '../TEST_SET.p'
 
 TRAIN_PCT, VAL_PCT = 0.8, 0.1
 
 
-def num_lines(file_path):
-    return sum(1 for _ in csv.reader(open(file_path))) - 1  # minus the header line
+def num_lines(file_path, exclude_header=False):
+    raw_total = sum(1 for _ in csv.reader(open(file_path)))
+    return raw_total - 1 if exclude_header else raw_total  # minus the header line
 
-def print_lines_info(file_path):
-    print("%d lines in the %s" % (num_lines(file_path), file_path))
-
-for infile_path in (ADXWON_INFILE_PATH, ADXLOSE_INFILE_PATH):
-    print_lines_info(infile_path)
-
+def print_lines_info(file_path, exclude_header=False):
+    print("%d lines in the %s" % (num_lines(file_path, exclude_header=exclude_header), file_path))
+    return num_lines(file_path)
 
 
 
-def random_split(INFILE_PATH):
+
+def random_split(FEATVEC_PATH, hb_PATH):
     """
     This function assumes that the entire data can completely fit into the memory
     """
     global num_features
-    with open(INFILE_PATH, newline='\n') as infile:
-        num_features = int(next(infile))  # skip the header
-        for line in infile:
+    with open(FEATVEC_PATH, newline='\n') as featvec_file, open(hb_PATH, newline='\n') as hb_file:
+        num_features = int(next(featvec_file))  # skip the header
+        next(hb_file)  # skip the header
+        for featvec_line, hb_line in zip(featvec_file, hb_file):
             rand_float = random.random()  # Random float x, 0.0 <= x < 1.0
             if rand_float < TRAIN_PCT:
-                training_data.append(line)
+                training_featvec.append(featvec_line)
+                training_hb.append(hb_line)
             elif TRAIN_PCT <= rand_float < TRAIN_PCT + VAL_PCT:
-                validation_data.append(line)
+                validation_featvec.append(featvec_line)
+                validation_hb.append(hb_line)
             else:
-                test_data.append(line)
+                test_featvec.append(featvec_line)
+                test_hb.append(hb_line)
 
-training_data, validation_data, test_data = [], [], []
+
+
+
+for infile_path in (ADXWON_FEATVEC_IN_PATH, ADXLOSE_FEATVEC_IN_PATH):
+    print_lines_info(infile_path, exclude_header=True)
+    
+training_featvec, validation_featvec, test_featvec = [], [], []
+training_hb, validation_hb, test_hb = [], [], []
 num_features = 0
 
-print()
-print("Splitting data...")
-for infile_path in (ADXWON_INFILE_PATH, ADXLOSE_INFILE_PATH):
-    random_split(infile_path)
 
-print()
-print("Writing data...")
-for data, outfile_path in ((training_data, TRAIN_OUTCSV_PATH),
-                            (validation_data, VAL_OUTCSV_PATH),
-                            (test_data, TEST_OUTCSV_PATH)):
-    shuffle(data)
-    open(outfile_path, 'w', newline='\n').writelines(data)
-    print_lines_info(outfile_path)
+print("\nSplitting data...")
+for featvec_path, headerbids_path in (
+                    (ADXWON_FEATVEC_IN_PATH, ADXWON_hb_IN_PATH),
+                    (ADXLOSE_FEATVEC_IN_PATH, ADXLOSE_hb_IN_PATH)):
+    random_split(featvec_path, headerbids_path)
 
+assert len(training_featvec) == len(training_hb)
+assert len(validation_featvec) == len(validation_hb)
+assert len(test_featvec) == len(test_hb)
+#assert len(training_featvec) + len(validation_featvec) + len(test_featvec) == \
+#       print_lines_info(ADXWON_FEATVEC_IN_PATH, exclude_header=True) + print_lines_info(ADXLOSE_FEATVEC_IN_PATH, exclude_header=True)
 
 
-def read_data(file_path):
+
+''' Write the split data sets (str; sparse format) to disk in order to easily check the partitions '''
+print("\nWriting data...")
+for featcsv_tmp, hb_tmp, tmpcsv_stempath in ((training_featvec, training_hb, TRAIN_TMPOUT_STEMPATH),
+                            (validation_featvec, validation_hb, VAL_TMPOUT_STEMPATH),
+                            (test_featvec, test_hb, TEST_TMPOUT_STEMPATH)):
+
+    open(tmpcsv_stempath + '_featvec.csv', 'w', newline='\n').writelines(featcsv_tmp)
+    open(tmpcsv_stempath + '_hb.csv', 'w', newline='\n').writelines(hb_tmp)
+    assert print_lines_info(tmpcsv_stempath + '_featvec.csv') == print_lines_info(tmpcsv_stempath + '_hb.csv')
+
+
+
+
+
+
+
+
+print("\nReading the temp csv files...")
+
+def read_data(featvec_path, hb_path):
     times, events = [], []
-    row_indices, col_indices, values = [], [], []
-    num_rows = 0
-    with open(file_path) as infile:
-        csv_reader = csv.reader(infile, delimiter=',')
-        for row_index, row in enumerate(csv_reader):
-            num_rows += 1
-            times.append(float(row[0]))
-            events.append(int(row[1]))
-            for node in row[2:]:
-                col_index, val = node.split(':')
-                row_indices.append(row_index)
-                col_indices.append(int(col_index))
-                values.append(float(val))
-    return np.array(times), \
-           np.array(events), \
-           coo_matrix((values, (row_indices, col_indices)), shape=(num_rows, num_features))
+    num_rows = print_lines_info(featvec_path)
+    row_indices_fv, col_indices_fv, values_fv = [], [], []
+    row_indices_hb, col_indices_hb, values_hb = [], [], []
 
-for csvfile, picklefile in ((TRAIN_OUTCSV_PATH, TRAIN_OUTPKL_PATH),
-                            (VAL_OUTCSV_PATH, VAL_OUTPKL_PATH),
-                            (TEST_OUTCSV_PATH, TEST_OUTPKL_PATH)):
-    pickle.dump(read_data(csvfile), open(picklefile, 'wb'))
-    print("DUMP:", picklefile)
+    with open(featvec_path) as fvfile, open(hb_path) as hbfile:
+        fv_reader = csv.reader(fvfile, delimiter=',')
+        hb_reader = csv.reader(hbfile, delimiter=',')
+
+        for i, (featvec, hb) in enumerate(zip(fv_reader, hb_reader)):
+            times.append(float(featvec[0]))
+            events.append(int(featvec[1]))
+            try:
+                for node in featvec[2:]:
+                    col_index, val = node.split(':')
+                    row_indices_fv.append(i)
+                    col_indices_fv.append(int(col_index))
+                    values_fv.append(float(val))
+
+                for node in hb:
+                    if node == '':
+                        break
+                    col_index, val = node.split(':')
+                    row_indices_hb.append(i)
+                    col_indices_hb.append(int(col_index))
+                    values_hb.append(float(val))
+
+            except MemoryError:
+                print("MemoryError")
+            print(i, num_rows)
+
+    return np.array(times), \
+         np.array(events), \
+         coo_matrix((values_fv, (row_indices_fv, col_indices_fv)), shape=(num_rows, num_features)), \
+         coo_matrix((values_hb, (row_indices_hb, col_indices_hb)), shape=(num_rows, len(HEADER_BIDDING_KEYS)))
+
+for tmpcsv_stempath, pkl_path in ((TRAIN_TMPOUT_STEMPATH, TRAIN_OUT_PATH),
+                            (VAL_TMPOUT_STEMPATH, VAL_OUT_PATH),
+                            (TEST_TMPOUT_STEMPATH, TEST_OUT_PATH)):
+    pickle.dump(read_data(tmpcsv_stempath + '_featvec.csv',
+                          tmpcsv_stempath+ '_hb.csv'),
+                open(pkl_path, 'wb'))
+    print("DUMPED:", pkl_path)
+

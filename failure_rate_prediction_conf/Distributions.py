@@ -3,7 +3,7 @@ import tensorflow as tf
 
 
 class WeibullDistribution:
-    def __init__(self, shape=0.4, threshold=0.05):
+    def __init__(self, shape=0.2, threshold=0.05):
         '''
 
         :param shape: The Weibull distribution with shape = 1 is the exponential distribution
@@ -22,7 +22,7 @@ class WeibullDistribution:
 
 
 class LogLogisticDistribution:
-    def __init__(self, shape=0.35):
+    def __init__(self, shape=0.7):
         self.shape = shape
 
     def left_censoring(self, time, scale):

@@ -26,13 +26,13 @@ class NetworkBackfillImpressionEntry(ImpressionEntry):
         if pd.isnull(self.doc['SellerReservePrice']) or not type(self.doc['SellerReservePrice']) is float:
             self.entry = None
             return None
-        return self.doc['SellerReservePrice']
+        return round(self.doc['SellerReservePrice'], 3)  # avoid precision issue
 
     def get_revenue(self):
         if pd.isnull(self.doc['EstimatedBackfillRevenue']) or not type(self.doc['EstimatedBackfillRevenue']) is float:
             self.entry = None
             return None
-        return self.doc['EstimatedBackfillRevenue'] * 1000
+        return round(self.doc['EstimatedBackfillRevenue'] * 1000, 3)  # avoid precision issue
 
     def is_qualified(self):
         # if (

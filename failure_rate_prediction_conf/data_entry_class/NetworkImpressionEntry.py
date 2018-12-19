@@ -25,10 +25,10 @@ class NetworkImpressionEntry(ImpressionEntry):
         return self.to_closest_5cents(highest_header_bid)
 
     def get_highest_header_bid(self):
-        header_bids = self.get_headerbidding()
+        header_bids = self.get_headerbids()
         if not header_bids:
             return None
-        return max(header_bids)
+        return max(v for v in header_bids if v is not None)
 
     def to_closest_5cents(self, num):
         return num - (num % 0.05)

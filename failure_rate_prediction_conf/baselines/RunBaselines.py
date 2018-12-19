@@ -5,9 +5,9 @@ from survival_analysis.baselines.BaselineUnivariateModels import UnivariateLogis
 from survival_analysis.baselines.BaselineMultivariateModels import MultivariateSGDLogisticRegression
 
 
-TRAIN_FILE_PATH = '../../Vectors_train.p'
-VAL_FILE_PATH = '../../Vectors_val.p'
-TEST_FILE_PATH = '../../Vectors_test.p'
+TRAIN_FILE_PATH = '../../TRAIN_SET.p'
+VAL_FILE_PATH = '../../VAL_SET.p'
+TEST_FILE_PATH = '../../TEST_SET.p'
 
 def _read_data(file_path):
     return pickle.load(open(file_path, 'rb'))
@@ -26,11 +26,11 @@ def run_univariate_baselines(Baseline):
     times_test = _expand_dims(times_test, axis=1)
 
     baseline.fit(np.array(times_train), np.array(events_train))
-    print("Training Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+    print("Training Performance:\tlogloss=%.6f, c-index=%.6f, accuracy=%.6f" %
           baseline.evaluate(times_train, np.array(events_train), sample_weights=np.squeeze(times_train)))
-    print("Validation Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+    print("Validation Performance:\tlogloss=%.6f, c-index=%.6f, accuracy=%.6f" %
           baseline.evaluate(times_val, np.array(events_val), sample_weights=np.squeeze(times_val)))
-    print("Test Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+    print("Test Performance:\tlogloss=%.6f, c-index=%.6f, accuracy=%.6f" %
           baseline.evaluate(times_test, np.array(events_test), sample_weights=np.squeeze(times_test)))
 
 
@@ -42,15 +42,15 @@ def run_multivariate_baselines(Baseline, sample_weights=None):
     baseline.partial_fit(training_data)
 
     train_data = SurvivalData(*_read_data(TRAIN_FILE_PATH))
-    print("Training Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+    print("Training Performance:\tlogloss=%.6f, c-index=%.6f, accuracy=%.6f" %
           baseline.evaluate(train_data, sample_weights=sample_weights))
 
     val_data = SurvivalData(*_read_data(VAL_FILE_PATH))
-    print("Validation Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+    print("Validation Performance:\tlogloss=%.6f, c-index=%.6f, accuracy=%.6f" %
           baseline.evaluate(val_data, sample_weights=sample_weights))
 
     test_data = SurvivalData(*_read_data(TEST_FILE_PATH))
-    print("Test Performance:\tlogloss=%.6f, auc=%.6f, accuracy=%.6f" %
+    print("Test Performance:\tlogloss=%.6f, c-index=%.6f, accuracy=%.6f" %
           baseline.evaluate(test_data, sample_weights=sample_weights))
 
 
