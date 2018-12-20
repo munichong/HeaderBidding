@@ -1,8 +1,8 @@
 import pickle, numpy as np
 
-from survival_analysis.DataReader import SurvivalData
-from survival_analysis.baselines.BaselineUnivariateModels import UnivariateLogisticRegression, KaplanMeier
-from survival_analysis.baselines.BaselineMultivariateModels import MultivariateSGDLogisticRegression
+from failure_rate_prediction_conf.DataReader import SurvivalData
+from failure_rate_prediction_conf.baselines.BaselineUnivariateModels import UnivariateLogisticRegression, KaplanMeier
+from failure_rate_prediction_conf.baselines.BaselineMultivariateModels import MultivariateSGDLogisticRegression
 
 
 TRAIN_FILE_PATH = '../../TRAIN_SET.p'

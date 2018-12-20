@@ -1,9 +1,9 @@
 import os, csv, pickle
 from pymongo import MongoClient
 from pprint import pprint
-from survival_analysis.data_entry_class.NetworkBackfillImpressionEntry import NetworkBackfillImpressionEntry
-from survival_analysis.data_entry_class.NetworkImpressionEntry import NetworkImpressionEntry
-from survival_analysis.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
+from failure_rate_prediction_conf.data_entry_class.NetworkBackfillImpressionEntry import NetworkBackfillImpressionEntry
+from failure_rate_prediction_conf.data_entry_class.NetworkImpressionEntry import NetworkImpressionEntry
+from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
 from collections import defaultdict, Counter
 
 

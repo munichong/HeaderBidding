@@ -1,6 +1,6 @@
 import csv, random, numpy as np, pickle
 from scipy.sparse import coo_matrix
-from survival_analysis.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
+from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
 
 ADXWON_FEATVEC_IN_PATH, ADXLOSE_FEATVEC_IN_PATH = '../FeatVec_adxwon.csv', '../FeatVec_adxlose.csv'
 ADXWON_hb_IN_PATH, ADXLOSE_hb_IN_PATH = '../HeaderBids_adxwon.csv', '../HeaderBids_adxlose.csv'

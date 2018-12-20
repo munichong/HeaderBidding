@@ -1,7 +1,7 @@
 import numpy as np, pandas as pd
 from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
-from survival_analysis.EvaluationMetrics import c_index
+from failure_rate_prediction_conf.EvaluationMetrics import c_index
 from scipy.sparse import hstack
 
 class MultivariateSGDLogisticRegression:

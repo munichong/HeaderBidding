@@ -1,7 +1,7 @@
 import pickle, numpy as np, math
 from pprint import pprint
 from sklearn.feature_selection import chi2
-from survival_analysis.DataReader import SurvivalData
+from failure_rate_prediction_conf.DataReader import SurvivalData
 from tabulate import tabulate
 
 TRAIN_FILE_PATH = '../../Vectors_train.p'

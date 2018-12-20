@@ -2,9 +2,9 @@ import numpy as np, pickle, csv
 
 import tensorflow as tf
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
-from survival_analysis.DataReader import SurvivalData
-from survival_analysis import Distributions
-from survival_analysis.EvaluationMetrics import c_index
+from failure_rate_prediction_conf.DataReader import SurvivalData
+from failure_rate_prediction_conf import Distributions
+from failure_rate_prediction_conf.EvaluationMetrics import c_index
 from time import time as nowtime
 
 class ParametricSurvival:

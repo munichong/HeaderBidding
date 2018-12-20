@@ -1,10 +1,8 @@
-import csv, pickle
-import tensorflow as tf
+import pickle
 from keras.preprocessing.sequence import pad_sequences
 import numpy as np
 from collections import Counter
 from sklearn.utils import shuffle
-from survival_analysis.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
 
 class SurvivalData:
 

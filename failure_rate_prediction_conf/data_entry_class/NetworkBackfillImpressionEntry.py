@@ -1,5 +1,5 @@
 import pandas as pd
-from survival_analysis.data_entry_class.ImpressionEntry import ImpressionEntry
+from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import ImpressionEntry
 
 
 class NetworkBackfillImpressionEntry(ImpressionEntry):

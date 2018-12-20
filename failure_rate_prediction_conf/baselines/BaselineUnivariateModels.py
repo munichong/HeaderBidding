@@ -2,7 +2,7 @@ import numpy as np, pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
 from lifelines import KaplanMeierFitter
-from survival_analysis.EvaluationMetrics import c_index
+from failure_rate_prediction_conf.EvaluationMetrics import c_index
 
 class UnivariateLogisticRegression:
 
