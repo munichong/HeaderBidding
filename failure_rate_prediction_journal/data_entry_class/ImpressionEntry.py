@@ -97,7 +97,6 @@ class ImpressionEntry:
     def get_headerbids(self):
         ct = self.doc['CustomTargeting']
         header_bids = [None] * len(HEADER_BIDDING_KEYS)
-        print(ct)
         for i, hb_key in enumerate(HEADER_BIDDING_KEYS):
             if hb_key not in ct:
                 continue
