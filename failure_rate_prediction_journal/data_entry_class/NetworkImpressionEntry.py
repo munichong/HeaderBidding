@@ -1,4 +1,4 @@
-from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import ImpressionEntry
+from failure_rate_prediction_journal.data_entry_class.ImpressionEntry import ImpressionEntry
 
 class NetworkImpressionEntry(ImpressionEntry):
     def __init__(self, doc):
