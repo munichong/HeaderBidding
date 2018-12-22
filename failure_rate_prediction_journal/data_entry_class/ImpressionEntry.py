@@ -11,7 +11,7 @@ HEADER_BIDDING_KEYS = ('mnetbidprice',
                         'mnet_fbcpm',
                         'amznbid',
                         'crt_pb',
-                        # 'fb_bid_price_cents'
+                        'fb_bid_price_cents'
                        )
 
 class ImpressionEntry:

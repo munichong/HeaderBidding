@@ -5,9 +5,9 @@ from failure_rate_prediction_conf.baselines.BaselineUnivariateModels import Univ
 from failure_rate_prediction_conf.baselines.BaselineMultivariateModels import MultivariateSGDLogisticRegression
 
 
-TRAIN_FILE_PATH = '../../TRAIN_SET.p'
-VAL_FILE_PATH = '../../VAL_SET.p'
-TEST_FILE_PATH = '../../TEST_SET.p'
+TRAIN_FILE_PATH = '../output/TRAIN_SET.p'
+VAL_FILE_PATH = '../output/VAL_SET.p'
+TEST_FILE_PATH = '../output/TEST_SET.p'
 
 def _read_data(file_path):
     return pickle.load(open(file_path, 'rb'))

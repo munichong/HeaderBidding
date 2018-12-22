@@ -138,24 +138,24 @@ if __name__ == "__main__":
 
     # counter does NOT contain header bidding.
     # counter contains the most common feature in each attribute
-    pickle.dump(vectorizer.counter, open("../counter.dict", "wb"))
+    pickle.dump(vectorizer.counter, open("output/counter.dict", "wb"))
     # attr2idx does NOT contain header bidding.
     # attr2idx does NOT contain the most common feature in each attribute
-    pickle.dump(vectorizer.attr2idx, open("../attr2idx.dict", "wb"))
+    pickle.dump(vectorizer.attr2idx, open("output/attr2idx.dict", "wb"))
 
     try:
-        os.remove('../FeatVec_adxwon.csv')
-        os.remove('../FeatVec_adxlose.csv')
-        os.remove('../HeaderBids_adxwon.csv')
-        os.remove('../HeaderBids_adxlose.csv')
+        os.remove('output/FeatVec_adxwon.csv')
+        os.remove('output/FeatVec_adxlose.csv')
+        os.remove('output/HeaderBids_adxwon.csv')
+        os.remove('output/HeaderBids_adxlose.csv')
     except OSError:
         pass
 
-    output_vector_files('../FeatVec_adxwon.csv',
-                        '../HeaderBids_adxwon.csv',
+    output_vector_files('output/FeatVec_adxwon.csv',
+                        'output/HeaderBids_adxwon.csv',
                         'NetworkBackfillImpressions',
                         NetworkBackfillImpressionEntry)
-    output_vector_files('../FeatVec_adxlose.csv',
-                        '../HeaderBids_adxlose.csv',
+    output_vector_files('output/FeatVec_adxlose.csv',
+                        'output/HeaderBids_adxlose.csv',
                         'NetworkImpressions',
                         NetworkImpressionEntry)

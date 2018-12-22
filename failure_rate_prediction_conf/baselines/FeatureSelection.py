@@ -4,17 +4,17 @@ from sklearn.feature_selection import chi2
 from failure_rate_prediction_conf.DataReader import SurvivalData
 from tabulate import tabulate
 
-TRAIN_FILE_PATH = '../../Vectors_train.p'
-VAL_FILE_PATH = '../../Vectors_val.p'
-TEST_FILE_PATH = '../../Vectors_test.p'
+TRAIN_FILE_PATH = '../output/Vectors_train.p'
+VAL_FILE_PATH = '../output/Vectors_val.p'
+TEST_FILE_PATH = '../output/Vectors_test.p'
 
 def _read_data(file_path):
     return pickle.load(open(file_path, 'rb'))
 
 def chi2_feature_selection(X, y):
     chi, pval = chi2(X, y)
-    attr2idx = pickle.load(open('../../attr2idx.dict', 'rb'))
-    counter = pickle.load(open('../../counter.dict', 'rb'))
+    attr2idx = pickle.load(open('../output/attr2idx.dict', 'rb'))
+    counter = pickle.load(open('../output/counter.dict', 'rb'))
 
     output = []
     idx2attr = {idx: (attr, feat) for attr, idx_dict in attr2idx.items() for feat, idx in idx_dict.items()}

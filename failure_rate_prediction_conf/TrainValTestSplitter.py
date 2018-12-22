@@ -2,12 +2,12 @@ import csv, random, numpy as np, pickle
 from scipy.sparse import coo_matrix
 from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
 
-ADXWON_FEATVEC_IN_PATH, ADXLOSE_FEATVEC_IN_PATH = '../FeatVec_adxwon.csv', '../FeatVec_adxlose.csv'
-ADXWON_hb_IN_PATH, ADXLOSE_hb_IN_PATH = '../HeaderBids_adxwon.csv', '../HeaderBids_adxlose.csv'
+ADXWON_FEATVEC_IN_PATH, ADXLOSE_FEATVEC_IN_PATH = 'output/FeatVec_adxwon.csv', 'output/FeatVec_adxlose.csv'
+ADXWON_hb_IN_PATH, ADXLOSE_hb_IN_PATH = 'output/HeaderBids_adxwon.csv', 'output/HeaderBids_adxlose.csv'
 
-TRAIN_TMPOUT_STEMPATH, VAL_TMPOUT_STEMPATH, TEST_TMPOUT_STEMPATH = '../train_tmp', '../val_tmp', '../test_tmp'
+TRAIN_TMPOUT_STEMPATH, VAL_TMPOUT_STEMPATH, TEST_TMPOUT_STEMPATH = 'output/train_tmp', 'output/val_tmp', 'output/test_tmp'
 
-TRAIN_OUT_PATH, VAL_OUT_PATH, TEST_OUT_PATH = '../TRAIN_SET.p', '../VAL_SET.p', '../TEST_SET.p'
+TRAIN_OUT_PATH, VAL_OUT_PATH, TEST_OUT_PATH = 'output/TRAIN_SET.p', 'output/VAL_SET.p', 'output/TEST_SET.p'
 
 TRAIN_PCT, VAL_PCT = 0.8, 0.1
 

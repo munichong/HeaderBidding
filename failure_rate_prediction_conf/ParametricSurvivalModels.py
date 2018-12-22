@@ -279,7 +279,7 @@ class ParametricSurvival:
 
 
                     # Store prediction results
-                    with open('../all_predictions_factorized.csv', 'w', newline="\n") as outfile:
+                    with open('output/all_predictions_factorized.csv', 'w', newline="\n") as outfile:
                         csv_writer = csv.writer(outfile)
                         csv_writer.writerow(('NOT_SURV_PROB', 'EVENTS', 'TIMES'))
                         for p, e, t in zip(not_survival_val, events_val, times_val):
@@ -293,7 +293,7 @@ class ParametricSurvival:
                               'distribution_name': type(self.distribution).__name__}
                     if embeddings_factorized is not None:
                         params['embeddings_factorized'] = embeddings_factorized.eval(),
-                    pickle.dump(params, open('../params_k%d.pkl' % self.k, 'wb'))
+                    pickle.dump(params, open('output/params_k%d.pkl' % self.k, 'wb'))
 
 
 
@@ -333,7 +333,7 @@ class ParametricSurvival:
 
 
 if __name__ == "__main__":
-    with open('../FeatVec_adxwon.csv') as f:
+    with open('output/FeatVec_adxwon.csv') as f:
         ''' The first line is the total number of unique features '''
         num_features = int(f.readline())
 
@@ -351,7 +351,7 @@ if __name__ == "__main__":
 
     print('Start training...')
     model.run_graph(num_features,
-                    SurvivalData(*pickle.load(open('../TRAIN_SET.p', 'rb'))),
-                    SurvivalData(*pickle.load(open('../VAL_SET.p', 'rb'))),
-                    SurvivalData(*pickle.load(open('../TEST_SET.p', 'rb'))),
+                    SurvivalData(*pickle.load(open('output/TRAIN_SET.p', 'rb'))),
+                    SurvivalData(*pickle.load(open('output/VAL_SET.p', 'rb'))),
+                    SurvivalData(*pickle.load(open('output/TEST_SET.p', 'rb'))),
                     sample_weights='time')
