@@ -5,7 +5,7 @@ EMPTY = '<EMPTY>'
 MIN_OCCURRENCE = 5
 MIN_OCCURRENCE_SYMBOL = '<RARE>'
 
-AMZBID_MAPPING_PATH = '..\PricePoints-3038-display.csv'
+AMZBID_MAPPING_PATH = '..\..\PricePoints-3038-display.csv'
 HEADER_BIDDING_KEYS = ('mnetbidprice',
                         'mnet_abd',
                         'mnet_fbcpm',
