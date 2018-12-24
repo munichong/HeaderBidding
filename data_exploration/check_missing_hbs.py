@@ -17,8 +17,8 @@ total_entires = 0
 n = 0
 counter = np.array([0] * len(HEADER_BIDDING_KEYS))
 for imp_entry in imp_entry_gen():
-        headerbids = imp_entry.get_headerbids()
-        counter += np.array([int(hb!=None) for hb in headerbids])
+    headerbids = imp_entry.get_headerbids()
+    counter += np.array([int(hb!=None) for hb in headerbids])
 
 print()
 print("IN TOTAL: %d impressions: Pct: %s, Count: %s" %
