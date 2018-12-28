@@ -21,8 +21,8 @@ def imp_entry_gen():
         col = client[DBNAME][COLNAME]
         total_entires = col.find().count()
         for doc in col.find(projection=FEATURE_FIELDS):
-            if n % 1000000 == 0:
-                print('%d/%d' % (n, total_entires))
+            if n % 100000 == 0:
+                print('%d/%d (%.2f%%)' % (n, total_entires, n/total_entires*100))
             n += 1
 
             imp_entry = ImpressionEntry(doc)
