@@ -31,7 +31,7 @@ class Vectorizer:
         total_entires = self.col.find().count()
         for doc in self.col.find(projection=FEATURE_FIELDS):
             if n % 1000000 == 0:
-                print('%d/%d' % (n, total_entires))
+                print('%d/%d (%.2f%%)' % (n, total_entires, n / total_entires * 100))
                 # if STOP:
                 #     break
                 # STOP = True
@@ -136,11 +136,15 @@ if __name__ == "__main__":
     pprint(vectorizer.attr2idx)
     pprint(vectorizer.num_features)
 
-    # counter does NOT contain header bidding.
-    # counter contains the most common feature in each attribute
+    '''
+    counter does NOT contain header bidding.
+    counter contains the most common feature in each attribute
+    '''
     pickle.dump(vectorizer.counter, open("output/counter.dict", "wb"))
-    # attr2idx does NOT contain header bidding.
-    # attr2idx does NOT contain the most common feature in each attribute
+    '''
+    attr2idx does NOT contain header bidding.
+    attr2idx does NOT contain the most common feature in each attribute
+    '''
     pickle.dump(vectorizer.attr2idx, open("output/attr2idx.dict", "wb"))
 
     try:
