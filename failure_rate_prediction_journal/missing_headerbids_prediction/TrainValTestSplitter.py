@@ -1,39 +1,57 @@
+"""
+1. Given all impressions in MongoDB, filter the impressions whose at least one header bids are known.
+2. Split them into training, validation, and test datasets.
+"""
 import pickle
+import os
 from random import shuffle
 from failure_rate_prediction_journal.data_entry_class.ImpressionEntryGenerator import imp_entry_gen
 from failure_rate_prediction_journal.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
 
+BUFFER_QUEUE_SIZE = 80000
 
-TRAIN_OUT_PATH, VAL_OUT_PATH, TEST_OUT_PATH = '../output/TRAIN_SET', '../output/VAL_SET', '../output/TEST_SET'
+ROOT = '../output/missing_headerbids_data_partitions'
+
+TRAIN_OUT_PATH, VAL_OUT_PATH, TEST_OUT_PATH = os.path.join(ROOT, 'TRAIN_SET'), \
+                                              os.path.join(ROOT, 'VAL_SET'), \
+                                              os.path.join(ROOT, 'TEST_SET')
 
 TRAIN_PCT, VAL_PCT = 0.8, 0.1
 
+''' Delete the files that were generated before '''
+for file in os.listdir(ROOT):
+    os.remove(os.path.join(ROOT, file))
+
 ''' For each header bidding agents, get all impressions in which their header bids are known '''
 hb_known_impressions = [[] for _ in range(len(HEADER_BIDDING_KEYS))]
+hb_known_file_index = [0] * len(HEADER_BIDDING_KEYS)
 for imp_entry in imp_entry_gen():
     headerbids = imp_entry.get_headerbids()
     for i, hb in enumerate(headerbids):
-        if hb is not None:
-            hb_known_impressions[i].append(imp_entry)
+        if hb is None:
+            continue
+
+        hb_known_impressions[i].append(imp_entry)
+
+        if len(hb_known_impressions[i]) == BUFFER_QUEUE_SIZE:
+            outfilename = HEADER_BIDDING_KEYS[i] + '_%d' % hb_known_file_index[i]
+
+            ''' train, val, and test partitioning '''
+            shuffle(hb_known_impressions[i])
+
+            train_len = int(TRAIN_PCT * len(hb_known_impressions[i]))
+            val_len = int(VAL_PCT * len(hb_known_impressions[i]))
+            pickle.dump(hb_known_impressions[i][ : train_len],
+                        open(os.path.join(ROOT, outfilename + '_train.p'),
+                             'wb'))
+            pickle.dump(hb_known_impressions[i][train_len : train_len + val_len],
+                        open(os.path.join(ROOT, outfilename + '_val.p'),
+                             'wb'))
+            pickle.dump(hb_known_impressions[i][train_len + val_len : ],
+                        open(os.path.join(ROOT, outfilename + '_test.p'),
+                             'wb'))
+            print('Files has been generated for %s.' % outfilename)
+            hb_known_impressions[i].clear()
+            hb_known_file_index[i] += 1
 
 
-''' Shuffle, split, and store '''
-for i, agent_impressions in enumerate(hb_known_impressions):
-    agent_name = HEADER_BIDDING_KEYS[i]
-    print("AGENT_NAME: %s" % agent_name)
-    n_train, n_val = int(len(agent_impressions) * TRAIN_PCT), int(len(agent_impressions) * VAL_PCT)
-
-    shuffle(agent_impressions)
-    imp_train = agent_impressions[ : n_train]
-    imp_val = agent_impressions[n_train : n_train + n_val]
-    imp_test = agent_impressions[n_train + n_val : ]
-
-    train_file_path = '_'.join([TRAIN_OUT_PATH, agent_name, 'train.p'])
-    val_file_path = '_'.join([VAL_OUT_PATH, agent_name, 'val.p'])
-    test_file_path = '_'.join([TEST_OUT_PATH, agent_name, 'test.p'])
-    pickle.dump(imp_train, open(train_file_path, 'wb'))
-    print("Dumped %d training impressions in %s" % (len(imp_train), train_file_path))
-    pickle.dump(imp_val, open(val_file_path, 'wb'))
-    print("Dumped %d validation impressions in %s" % (len(imp_val), val_file_path))
-    pickle.dump(imp_test, open(test_file_path, 'wb'))
-    print("Dumped %d test impressions in %s" % (len(imp_test), test_file_path))
