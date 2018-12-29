@@ -14,13 +14,14 @@ FEATURE_FIELDS = ['URIs_pageno', 'NaturalIDs', 'RefererURL', 'UserId',
                   'CustomTargeting', ]
 
 def imp_entry_gen():
-    n = 0
+
     DBNAME = 'Header_Bidding'
     for COLNAME, ImpressionEntry in [('NetworkBackfillImpressions', NetworkBackfillImpressionEntry),
                                      ('NetworkImpressions', NetworkImpressionEntry)]:
         col = client[DBNAME][COLNAME]
         total_entires = col.find().count()
-        for doc in col.find(projection=FEATURE_FIELDS):
+        n = 0
+        for doc in col.find(projection=FEATURE_FIELDS, no_cursor_timeout=True):
             if n % 100000 == 0:
                 print('%d/%d (%.2f%%)' % (n, total_entires, n/total_entires*100))
             n += 1
