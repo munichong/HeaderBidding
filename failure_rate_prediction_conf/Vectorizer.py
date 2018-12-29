@@ -28,10 +28,10 @@ class Vectorizer:
 
         # STOP = False
         n = 0
-        total_entires = self.col.find().count()
+        total_entries = self.col.find().count()
         for doc in self.col.find(projection=FEATURE_FIELDS):
             if n % 1000000 == 0:
-                print('%d/%d (%.2f%%)' % (n, total_entires, n / total_entires * 100))
+                print('%d/%d (%.2f%%)' % (n, total_entries, n / total_entries * 100))
                 # if STOP:
                 #     break
                 # STOP = True
@@ -94,7 +94,7 @@ class Vectorizer:
         header_bids = []
         for doc in self.col.find(projection=FEATURE_FIELDS):
             if n % 1000000 == 0:
-                print('%d/%d' % (n, total_entries))
+                print('%d/%d (%.2f%%)' % (n, total_entries, n / total_entries * 100))
                 yield matrix, header_bids
                 matrix.clear()
                 header_bids.clear()
