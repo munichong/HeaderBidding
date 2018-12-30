@@ -175,4 +175,5 @@ def build_vectors_for_one_agent():
 
 
 if __name__ == "__main__":
-    build_vectors_across_all_agents()
+    # build_vectors_across_all_agents()
+    build_vectors_for_one_agent()
