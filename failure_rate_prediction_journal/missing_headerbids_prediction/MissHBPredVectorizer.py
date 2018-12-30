@@ -145,7 +145,13 @@ def build_vectors_for_one_agent():
     Only take one agent's features into account
     i.e., an agents has a unique and narrow feature space.
     """
+    ' delete old files '
+    for file in os.listdir(VECTOR_ONE_DIR):
+        os.remove(os.path.join(VECTOR_ONE_DIR, file))
+
     for agent_name in HEADER_BIDDING_KEYS:
+        print("\n================================================")
+        print("Processing agent %s ..." % agent_name)
         vectorizer = Vectorizer()
         vectorizer.fit_one_agent(PARTITION_DIR, agent_name)
         vectorizer.build_attr2idx()
@@ -162,15 +168,12 @@ def build_vectors_for_one_agent():
         # attr2idx does NOT contain the most common feature in each attribute
         pickle.dump(vectorizer.attr2idx, open(os.path.join(VECTOR_ONE_DIR, agent_name + '_' + "attr2idx.dict"), "wb"))
 
-        ' delete old files '
-        for file in os.listdir(VECTOR_ONE_DIR):
-            os.remove(os.path.join(VECTOR_ONE_DIR, file))
-
         output_one_agent_vector_files(vectorizer,
                                       os.path.join(VECTOR_ONE_DIR, agent_name + '_' + 'featvec.csv'),
                                       os.path.join(VECTOR_ONE_DIR, agent_name + '_' + 'headerbids.csv'),
                                       PARTITION_DIR,
                                       agent_name)
+        print("Finish agent %s" % agent_name)
 
 
 
