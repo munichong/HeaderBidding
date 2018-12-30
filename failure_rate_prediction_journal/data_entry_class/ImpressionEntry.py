@@ -3,7 +3,7 @@ import csv, pandas as pd
 
 EMPTY = '<EMPTY>'
 MIN_OCCURRENCE = 5
-MIN_OCCURRENCE_SYMBOL = '<RARE>'
+# MIN_OCCURRENCE_SYMBOL = '<RARE>'
 
 AMZBID_MAPPING_PATH = '..\..\PricePoints-3038-display.csv'
 HEADER_BIDDING_KEYS = ('mnetbidprice',
@@ -117,24 +117,21 @@ class ImpressionEntry:
                 sparse_rep.append(':'.join(map(str, [i, hb])))
         return sparse_rep
 
-    def to_sparse_feature_vector(self, attr2idx, counter):
+    def to_sparse_feature_vector(self, attr2idx):
         vector = []
         for attr, feats in self.entry.items():
             if type(feats) == list:
                 for f in feats:
-                    if f not in attr2idx[attr]:  # if the feature is the one that is skipped (for avoiding dummy variable trap)
+                    ''' if the feature is unseen or rare in the training data, skip (leave it to the intercept) '''
+                    if f not in attr2idx[attr]:
                         continue
                     vector.append(':'.join(map(str, [attr2idx[attr][f], 1.0 / len(feats)])))
             elif type(feats) == str:
-                if counter[attr][feats] < MIN_OCCURRENCE:
-                    vector.append(':'.join(map(str, [attr2idx[attr][MIN_OCCURRENCE_SYMBOL], 1])))
-                elif feats in attr2idx[attr]:  # if the feature is NOT the one that is skipped (for avoiding dummy variable trap)
-                    vector.append(':'.join(map(str, [attr2idx[attr][feats], 1])))
+                if feats not in attr2idx[attr]:
+                    continue
+                vector.append(':'.join(map(str, [attr2idx[attr][feats], 1])))
             else:
+                ''' if the feature is float for example '''
                 vector.append(':'.join(map(str, [attr2idx[attr][attr], feats])))
-        # append header bids
-        # for i, bid in enumerate(self.get_headerbidding()):
-        #     if bid == 0:
-        #         continue
-        #     vector.append
+
         return vector
