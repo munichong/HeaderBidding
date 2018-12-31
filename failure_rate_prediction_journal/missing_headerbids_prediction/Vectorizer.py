@@ -118,12 +118,18 @@ def output_one_agent_vector_files(vectorizer, output_dir, imp_files_path, agent_
                                '%s_headerbids_%s.csv' % (agent_name, dataset_type)
                                ), 'a', newline='\n') as outfile_hb:
             writer_feat = csv.writer(outfile_feat, delimiter=',')
-            writer_hb = csv.writer(outfile_hb, delimiter=',')
             writer_feat.writerow([vectorizer.num_features])  # the number of features
+            writer_hb = csv.writer(outfile_hb, delimiter=',')
             for hbs, mat in vectorizer.transform(imp_files_path, agent_name,
                                                 r'%s_\d+_%s' % (agent_name, dataset_type)):
                 writer_feat.writerows(mat)
                 writer_hb.writerows(hbs)
+                pickle.dump(mat, open(os.path.join(output_dir,
+                               '%s_featvec_%s.p' % (agent_name, dataset_type)
+                               ), "wb"))
+                pickle.dump(hbs, open(os.path.join(output_dir,
+                                '%s_headerbids_%s.p' % (agent_name, dataset_type)
+                                ), "wb"))
 
 
 def build_vectors_across_all_agents():
