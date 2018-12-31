@@ -1,4 +1,4 @@
-import os, csv, pickle
+import os, re, csv, pickle
 import pandas as pd
 from pprint import pprint
 from failure_rate_prediction_conf.data_entry_class.NetworkBackfillImpressionEntry import NetworkBackfillImpressionEntry
@@ -16,12 +16,10 @@ class Vectorizer:
     def __init__(self):
         self.counter = defaultdict(Counter)  # {Attribute1:Counter<features>, Attribute2:Counter<features>, ...}
 
-    def fit_one_agent(self, dir_path, agent_name):
-        """
-        Build dictionary for all hd agents so that they share the same feature space
-        """
+    def fit(self, dir_path, file_filter_re):
         for filename in os.listdir(dir_path):
-            if filename[ : len(agent_name)] != agent_name or filename[-len('train.p'):] != 'train.p':
+            if not re.match(file_filter_re, filename):
+                # filename[ : len(agent_name)] != agent_name or filename[-len('train.p'):] != 'train.p':
                 continue
             print("Fitting %s" % filename)
             for imp_entry in pickle.load(open(os.path.join(dir_path, filename), 'rb')):
@@ -33,10 +31,27 @@ class Vectorizer:
                     else:
                         self.counter[k][k] += 1  # for float or int features, occupy only one column
 
-
-    def fit_all_agents(self, dir_path):
-        for agent_name in HEADER_BIDDING_KEYS:
-            self.fit_one_agent(dir_path, agent_name)
+    # def fit_one_agent(self, dir_path, agent_name):
+    #     """
+    #     Build dictionary for all hd agents so that they share the same feature space
+    #     """
+    #     for filename in os.listdir(dir_path):
+    #         if filename[ : len(agent_name)] != agent_name or filename[-len('train.p'):] != 'train.p':
+    #             continue
+    #         print("Fitting %s" % filename)
+    #         for imp_entry in pickle.load(open(os.path.join(dir_path, filename), 'rb')):
+    #             for k, v in imp_entry.entry.items():  # iterate all <fields:feature>
+    #                 if type(v) == list:
+    #                     self.counter[k].update(v)
+    #                 elif type(v) == str:
+    #                     self.counter[k][v] += 1
+    #                 else:
+    #                     self.counter[k][k] += 1  # for float or int features, occupy only one column
+    #
+    #
+    # def fit_all_agents(self, dir_path):
+    #     for agent_name in HEADER_BIDDING_KEYS:
+    #         self.fit_one_agent(dir_path, agent_name)
 
 
     def build_attr2idx(self):
@@ -63,13 +78,13 @@ class Vectorizer:
         # return target + imp_entry.to_full_feature_vector(self.num_features)
         return header_bid, imp_entry.to_sparse_feature_vector(self.attr2idx)
 
-    def transform_one_agent(self, dir_path, agent_name):
+    def transform(self, dir_path, agent_name, file_filter_re):
         agent_index = HEADER_BIDDING_KEYS.index(agent_name)
         header_bids = []
         feature_matrix = []
         n = 0
         for filename in os.listdir(dir_path):
-            if filename[ : len(agent_name)] != agent_name:
+            if not re.match(file_filter_re, filename):
                 continue
             print("Transforming %s" % filename)
             if n % 1000000 == 0:
@@ -88,21 +103,27 @@ class Vectorizer:
         header_bids.clear()
         feature_matrix.clear()
 
-    def transform_all_agents(self, dir_path):
-        for agent_name in HEADER_BIDDING_KEYS:
-            yield self.transform_one_agent(dir_path, agent_name)
+    # def transform_all_agents(self, dir_path):
+    #     for agent_name in HEADER_BIDDING_KEYS:
+    #         yield self.transform_one_agent(dir_path, agent_name)
 
 
 
-def output_one_agent_vector_files(vectorizer, featfile_path, hbfile_path, imp_files_path, agent_name):
-    with open(featfile_path, 'a', newline='\n') as outfile_feat, \
-            open(hbfile_path, 'a', newline='\n') as outfile_hb:
-        writer_feat = csv.writer(outfile_feat, delimiter=',')
-        writer_hb = csv.writer(outfile_hb, delimiter=',')
-        writer_feat.writerow([vectorizer.num_features])  # the number of features
-        for hbs, mat in vectorizer.transform_one_agent(imp_files_path, agent_name):
-            writer_feat.writerows(mat)
-            writer_hb.writerows(hbs)
+def output_one_agent_vector_files(vectorizer, output_dir, imp_files_path, agent_name):
+    for dataset_type in ('train', 'val', 'test'):
+        with open(os.path.join(output_dir,
+                               '%s_featvec_%s.csv' % (agent_name, dataset_type)
+                               ), 'a', newline='\n') as outfile_feat, \
+                open(os.path.join(output_dir,
+                               '%s_headerbids_%s.csv' % (agent_name, dataset_type)
+                               ), 'a', newline='\n') as outfile_hb:
+            writer_feat = csv.writer(outfile_feat, delimiter=',')
+            writer_hb = csv.writer(outfile_hb, delimiter=',')
+            writer_feat.writerow([vectorizer.num_features])  # the number of features
+            for hbs, mat in vectorizer.transform(imp_files_path, agent_name,
+                                                r'%s_\d+_%s' % (agent_name, dataset_type)):
+                writer_feat.writerows(mat)
+                writer_hb.writerows(hbs)
 
 
 def build_vectors_across_all_agents():
@@ -111,7 +132,7 @@ def build_vectors_across_all_agents():
     i.e., all agents share the same feature space.
     """
     vectorizer = Vectorizer()
-    vectorizer.fit_all_agents(PARTITION_DIR)
+    vectorizer.fit(PARTITION_DIR, r'.+_train\.p')
     vectorizer.build_attr2idx()
     print("\nCounter:")
     pprint(vectorizer.counter)
@@ -132,11 +153,9 @@ def build_vectors_across_all_agents():
     pickle.dump(vectorizer.attr2idx, open(os.path.join(VECTOR_ALL_DIR, "attr2idx.dict"), "wb"))
     print("The counter and attr2idx are dumped")
 
-
     for agent_name in HEADER_BIDDING_KEYS:
         output_one_agent_vector_files(vectorizer,
-                                      os.path.join(VECTOR_ALL_DIR, agent_name + '_' + 'featvec.csv'),
-                                      os.path.join(VECTOR_ALL_DIR, agent_name + '_' + 'headerbids.csv'),
+                                      VECTOR_ALL_DIR,
                                       PARTITION_DIR,
                                       agent_name)
 
@@ -153,7 +172,7 @@ def build_vectors_for_one_agent():
         print("\n================================================")
         print("Processing agent %s ..." % agent_name)
         vectorizer = Vectorizer()
-        vectorizer.fit_one_agent(PARTITION_DIR, agent_name)
+        vectorizer.fit(PARTITION_DIR, r'%s_\d+_train\.p' % agent_name)
         vectorizer.build_attr2idx()
         print("\nCounter:")
         pprint(vectorizer.counter)
@@ -169,8 +188,7 @@ def build_vectors_for_one_agent():
         pickle.dump(vectorizer.attr2idx, open(os.path.join(VECTOR_ONE_DIR, agent_name + '_' + "attr2idx.dict"), "wb"))
 
         output_one_agent_vector_files(vectorizer,
-                                      os.path.join(VECTOR_ONE_DIR, agent_name + '_' + 'featvec.csv'),
-                                      os.path.join(VECTOR_ONE_DIR, agent_name + '_' + 'headerbids.csv'),
+                                      VECTOR_ONE_DIR,
                                       PARTITION_DIR,
                                       agent_name)
         print("Finish agent %s" % agent_name)
@@ -178,5 +196,5 @@ def build_vectors_for_one_agent():
 
 
 if __name__ == "__main__":
-    # build_vectors_across_all_agents()
+    build_vectors_across_all_agents()
     build_vectors_for_one_agent()
