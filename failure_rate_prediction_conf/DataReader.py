@@ -13,6 +13,11 @@ class SurvivalData:
         self.max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]  # 94
 
     def get_sparse_feat_vec_batch(self, batch_size=100):
+        '''
+        For baselines
+        :param batch_size:
+        :return:
+        '''
         self.times, self.events, self.sparse_features, self.sparse_headerbids = \
             shuffle(self.times, self.events, self.sparse_features, self.sparse_headerbids)
 
@@ -25,6 +30,11 @@ class SurvivalData:
             start_index += batch_size
 
     def make_sparse_batch(self, batch_size=10000):
+        '''
+        for our methods
+        :param batch_size:
+        :return:
+        '''
         self.times, self.events, self.sparse_features, self.sparse_headerbids = \
             shuffle(self.times, self.events, self.sparse_features, self.sparse_headerbids)
 
