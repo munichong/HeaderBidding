@@ -2,8 +2,6 @@ import os, re, csv, pickle
 from scipy import sparse
 from pprint import pprint
 from scipy.sparse import coo_matrix
-from failure_rate_prediction_conf.data_entry_class.NetworkBackfillImpressionEntry import NetworkBackfillImpressionEntry
-from failure_rate_prediction_conf.data_entry_class.NetworkImpressionEntry import NetworkImpressionEntry
 from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS, MIN_OCCURRENCE
 from collections import defaultdict, Counter
 
@@ -65,11 +63,6 @@ class Vectorizer:
             if not re.match(file_filter_re, filename):
                 continue
             print("Transforming %s" % filename)
-            # if n % 1000000 == 0:
-            #     yield header_bids, feature_matrix
-            #     header_bids.clear()
-            #     feature_matrix.clear()
-            # n += 1
 
             for imp_entry in pickle.load(open(os.path.join(dir_path, filename), 'rb')):
                 header_bid, features = self.transform_one_impression(imp_entry, agent_index)
@@ -78,8 +71,6 @@ class Vectorizer:
                     feature_matrix.append(features)
 
         return header_bids, feature_matrix
-        # header_bids.clear()
-        # feature_matrix.clear()
 
 
 
