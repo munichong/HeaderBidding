@@ -49,7 +49,7 @@ if __name__ == "__main__":
     )
     s = HeaderBidingData(headerbids, sparse_features)
 
-    for hb, f_ind, f_val, max_nonzero_len in s.make_sparse_batch(10):
+    for hb, f_ind, f_val, max_nonzero_len in s.make_sparse_batch(1):
         print(hb)
         print(f_ind)
         print(f_val)
