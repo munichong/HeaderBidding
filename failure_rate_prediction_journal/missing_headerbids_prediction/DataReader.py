@@ -1,46 +1,24 @@
 import os
-import csv
 import numpy as np
+from scipy import sparse
 from keras.preprocessing.sequence import pad_sequences
-from scipy.sparse import coo_matrix
 from collections import Counter
 from sklearn.utils import shuffle
 
 class HeaderBidingData:
 
-    def __init__(self, headerbids_file, sparse_features_file):
+    def __init__(self, headerbids : list,
+                 sparse_features : sparse.csr.csr_matrix):
 
-        self.headerbids = np.array([float(hb.rstrip()) for hb in open(headerbids_file).readlines()])
-        self.sparse_features = self.featstr_to_sparsemat(sparse_features_file)
+        self.headerbids = headerbids
+        self.sparse_features = sparse_features
         self.num_instances = len(self.headerbids)
+        assert self.sparse_features.shape[0] == self.num_instances
+
         self.max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]
 
-    def featstr_to_sparsemat(self, file_path):
-        row_indices_fv, col_indices_fv, values_fv = [], [], []
-        num_rows = 0
-        row_gen = csv.reader(open(file_path))
-        num_features = int(next(row_gen)[0])
-        for row in row_gen:
-            for node in row:
-                col_index, val = node.split(':')
-                row_indices_fv.append(num_rows)
-                col_indices_fv.append(int(col_index))
-                values_fv.append(float(val))
-            num_rows += 1
-        return coo_matrix((values_fv, (row_indices_fv, col_indices_fv)), shape=(num_rows, num_features)).tocsr()
-
-    # def get_sparse_feat_vec_batch(self, batch_size=100):
-    #     #     self.headerbids, self.sparse_features = shuffle(self.headerbids, self.sparse_features)
-    #     #
-    #     #     start_index = 0
-    #     #     while start_index < self.num_instances:
-    #     #
-    #     #         yield self.headerbids[start_index: start_index + batch_size], \
-    #     #               self.sparse_features[start_index: start_index + batch_size, :]
-    #     #         start_index += batch_size
-
     def make_sparse_batch(self, batch_size=10000):
-        # self.headerbids, self.sparse_features = shuffle(self.headerbids, self.sparse_features)
+        self.headerbids, self.sparse_features = shuffle(self.headerbids, self.sparse_features)
 
         start_index = 0
         while start_index < self.num_instances:
@@ -60,9 +38,16 @@ class HeaderBidingData:
 
 if __name__ == "__main__":
     INPUT_DIR = '../output/all_agents_vectorization'
-    sparse_features_file = os.path.join(INPUT_DIR, 'mnetbidprice_featvec_train.csv')
-    headerbids_file = os.path.join(INPUT_DIR, 'mnetbidprice_headerbids_train.csv')
-    s = HeaderBidingData(headerbids_file, sparse_features_file)
+    sparse_features = sparse.load_npz(os.path.join(INPUT_DIR, 'mnetbidprice_featvec_train.csr.npz'))
+    headerbids = list(
+        map(
+            float,
+            open(os.path.join(INPUT_DIR,
+                              'mnetbidprice_headerbids_train.csv'))
+                .read().splitlines()
+        )
+    )
+    s = HeaderBidingData(headerbids, sparse_features)
 
     for hb, f_ind, f_val, max_nonzero_len in s.make_sparse_batch(10):
         print(hb)
