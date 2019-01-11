@@ -2,7 +2,7 @@ import os, re, csv, pickle
 from scipy import sparse
 from pprint import pprint
 from scipy.sparse import coo_matrix
-from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS, MIN_OCCURRENCE
+from failure_rate_prediction_journal.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS, MIN_OCCURRENCE
 from collections import defaultdict, Counter
 
 
