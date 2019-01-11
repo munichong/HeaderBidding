@@ -5,17 +5,36 @@ from keras.preprocessing.sequence import pad_sequences
 from collections import Counter
 from sklearn.utils import shuffle
 
-class HeaderBidingData:
+class HeaderBiddingData:
 
-    def __init__(self, headerbids : list,
+    def __init__(self):
+        self.headerbids = []
+        self.sparse_features = None
+        self.max_nonzero_len = 0
+
+    def num_instances(self):
+        return self.sparse_features.shape[0]
+
+    def num_features(self):
+        return self.sparse_features.shape[1]
+
+    def add_data(self, headerbids : list,
                  sparse_features : sparse.csr.csr_matrix):
+        self.headerbids.extend(headerbids)
 
-        self.headerbids = headerbids
-        self.sparse_features = sparse_features
-        self.num_instances = len(self.headerbids)
-        assert self.sparse_features.shape[0] == self.num_instances
+        if self.sparse_features is None:
+            self.sparse_features = sparse_features
+        else:
+            self.sparse_features = sparse.vstack(
+                (self.sparse_features,
+                 sparse_features)
+            )
 
-        self.max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]
+        assert self.sparse_features.shape[0] == len(self.headerbids)
+
+        self.max_nonzero_len = max(self.max_nonzero_len,
+                                   Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]
+                                   )
 
     def make_sparse_batch(self, batch_size=10000):
         self.headerbids, self.sparse_features = shuffle(self.headerbids, self.sparse_features)
@@ -35,19 +54,37 @@ class HeaderBidingData:
             start_index += batch_size
 
 
-
-if __name__ == "__main__":
-    INPUT_DIR = '../output/all_agents_vectorization'
-    sparse_features = sparse.load_npz(os.path.join(INPUT_DIR, 'mnetbidprice_featvec_train.csr.npz'))
+def load_hb_data(hb_agent_name):
+    sparse_features = sparse.load_npz(os.path.join(INPUT_DIR,
+                                                   '%s_featvec_train.csr.npz' % hb_agent_name))
     headerbids = list(
         map(
             float,
             open(os.path.join(INPUT_DIR,
-                              'mnetbidprice_headerbids_train.csv'))
+                              '%s_headerbids_train.csv' % hb_agent_name))
                 .read().splitlines()
         )
     )
-    s = HeaderBidingData(headerbids, sparse_features)
+    return headerbids, sparse_features
+
+if __name__ == "__main__":
+    INPUT_DIR = '../output/all_agents_vectorization'
+
+    s = HeaderBiddingData()
+
+    for i, hd_agent_name in enumerate(['mnetbidprice', 'amznbid']):
+        headerbids, sparse_features = load_hb_data(hd_agent_name)
+        print("%d instances and %d features" % sparse_features.shape)
+
+        hb_agent_onehot = [0.0] * 2
+        hb_agent_onehot[i] = 1.0
+        sparse_features = sparse.hstack(
+            (np.array([hb_agent_onehot]*sparse_features.shape[0]),
+            sparse_features)
+        )
+        print("\t%d instances and %d features" % sparse_features.shape)
+
+        s.add_data(headerbids, sparse_features)
 
     for hb, f_ind, f_val, max_nonzero_len in s.make_sparse_batch(1):
         print(hb)
