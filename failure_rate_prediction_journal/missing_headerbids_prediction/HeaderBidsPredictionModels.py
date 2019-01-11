@@ -130,8 +130,6 @@ class HBPredictionModel:
                 for hb_batch, featidx_batch, featval_batch, max_nz_len in train_data.make_sparse_batch(self.batch_size):
                     num_batch += 1
 
-                    print(hb_batch, featidx_batch, featval_batch, max_nz_len)
-
                     _, loss_batch = sess.run([training_op, loss_mean],
                                              feed_dict={
                                              'feature_indice:0': featidx_batch,
@@ -213,7 +211,6 @@ if __name__ == "__main__":
             hb_data_train.add_data(*load_hb_data_all_agents(ALL_AGENTS_DIR, hb_agent_name, 'train'))
             hb_data_val.add_data(*load_hb_data_all_agents(ALL_AGENTS_DIR, hb_agent_name, 'val'))
             hb_data_test.add_data(*load_hb_data_all_agents(ALL_AGENTS_DIR, hb_agent_name, 'test'))
-
 
         print('Building model...')
         model = HBPredictionModel(batch_size=2048,
