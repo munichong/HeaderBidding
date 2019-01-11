@@ -1,13 +1,13 @@
 import os
+import csv
 import pickle
 import numpy as np
 
 import tensorflow as tf
-from scipy.sparse import hstack
-from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
-from failure_rate_prediction_journal.missing_headerbids_prediction.DataReader import HeaderBiddingData, load_hb_data
 from time import time as nowtime
-from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS, MIN_OCCURRENCE
+from sklearn.metrics import mean_squared_error
+from failure_rate_prediction_journal.missing_headerbids_prediction.DataReader import HeaderBiddingData, load_hb_data_all_agents, load_hb_data_one_agent
+from failure_rate_prediction_journal.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
 
 MODE = 'all_agents'
 INPUT_DIR = '../output'
@@ -38,7 +38,7 @@ class HBPredictionModel:
         return pairs_mulsum
 
 
-    def run_graph(self, num_features, train_data, val_data, test_data, sample_weights=None):
+    def run_graph(self, train_data, val_data, test_data, sample_weights='hb'):
         '''
 
         :param distribution:
@@ -46,22 +46,20 @@ class HBPredictionModel:
         :param k: the dimensionality of the embedding, Must be >= 0; when k=0, it is a simple model; Otherwise it is factorized
         :return:
         '''
+
+        num_features = train_data.num_features()
+
         # INPUTs
         feature_indice = tf.placeholder(tf.int32, name='feature_indice')
         feature_values = tf.placeholder(tf.float32, name='feature_values')
 
-        min_hbs = tf.placeholder(tf.float32, name='min_headerbids')  # for regularization
-        max_hbs = tf.placeholder(tf.float32, name='max_headerbids')  # for regularization
-
-        times = tf.placeholder(tf.float32, shape=[None], name='times')
-        events = tf.placeholder(tf.int32, shape=[None], name='events')
+        header_bids_ture = tf.placeholder(tf.float32, name='header_bids')
 
         # shape: (batch_size, max_nonzero_len)
         embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=1e-5))
         filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
         intercept = tf.Variable(1e-5)
-        linear_term = self.linear_function(filtered_embeddings_linear, intercept)
-        scale = linear_term
+        scale = self.linear_function(filtered_embeddings_linear, intercept)
 
         embeddings_factorized = None
         if self.k > 0:
@@ -73,42 +71,22 @@ class HBPredictionModel:
             scale += factorized_term
 
 
+        # TODO: add Gumbel distribution
+        ''' Gumbel Distribution '''
+        header_bids_pred = scale
 
-        running_acc, acc_update = None, None
-        if not sample_weights:
-            running_acc, acc_update = tf.metrics.accuracy(labels=events, predictions=not_survival_bin)
-        elif sample_weights == 'time':
-            running_acc, acc_update = tf.metrics.accuracy(labels=events, predictions=not_survival_bin, weights=times)
 
         batch_loss = None
         if not sample_weights:
-            batch_loss = tf.losses.log_loss(labels=events, predictions=not_survival_proba,
-                                            reduction = tf.losses.Reduction.MEAN)
+            batch_loss = tf.losses.mean_squared_error(labels=header_bids_ture,
+                                                      predictions=header_bids_pred,
+                                                      reduction = tf.losses.Reduction.MEAN)
         elif sample_weights == 'time':
-            batch_loss = tf.losses.log_loss(labels=events, predictions=not_survival_proba, weights=times,
-                                            reduction = tf.losses.Reduction.MEAN)
+            batch_loss = tf.losses.mean_squared_error(labels=header_bids_ture,
+                                                      predictions=header_bids_pred,
+                                                      weights=header_bids_ture,
+                                                      reduction = tf.losses.Reduction.MEAN)
         running_loss, loss_update = tf.metrics.mean(batch_loss)
-
-
-
-        hb_reg_adxwon, hb_reg_adxlose = None, None
-        if not sample_weights:
-        # if True:
-            hb_reg_adxwon = tf.losses.log_loss(labels=tf.zeros(tf.shape(hb_adxwon_pred)),
-                                               predictions=hb_adxwon_pred)
-            hb_reg_adxlose = tf.losses.log_loss(labels=tf.zeros(tf.shape(hb_adxlose_pred)),
-                                                predictions=hb_adxlose_pred)
-        elif sample_weights == 'time':
-            regable_time_adxwon = tf.dynamic_partition(times, hb_adxwon_partitions, 2)[1]
-            regable_time_adxlose = tf.dynamic_partition(times, hb_adxlose_partitions, 2)[1]
-            hb_reg_adxwon = tf.losses.log_loss(labels=tf.ones(tf.shape(hb_adxwon_pred)),
-                                               predictions=hb_adxwon_pred,
-                                               weights=1.0 / regable_time_adxwon)
-            hb_reg_adxlose = tf.losses.log_loss(labels=tf.zeros(tf.shape(hb_adxlose_pred)),
-                                                predictions=hb_adxlose_pred,
-                                                weights=1.0 / regable_time_adxlose)
-        mean_hb_reg_adxwon = tf.reduce_mean(hb_reg_adxwon)
-        mean_hb_reg_adxlose = tf.reduce_mean(hb_reg_adxlose)
 
 
         # L2 regularized sum of squares loss function over the embeddings
@@ -118,10 +96,8 @@ class HBPredictionModel:
         sum_l2_norm = tf.constant(self.lambda_factorized) * tf.reduce_sum(l2_norm)
 
 
-        loss_mean = batch_loss + \
-                    tf.constant(self.lambda_hb_adxwon) * mean_hb_reg_adxwon + \
-                    tf.constant(self.lambda_hb_adxlose) * mean_hb_reg_adxlose + \
-                    sum_l2_norm
+        loss_mean = batch_loss + sum_l2_norm
+
         # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
 
         ### gradient clipping
@@ -143,56 +119,47 @@ class HBPredictionModel:
             init.run()
 
             max_loss_val = None
-
             num_total_batches = int(np.ceil(train_data.num_instances / self.batch_size))
             for epoch in range(1, self.num_epochs + 1):
                 sess.run(running_vars_initializer)
-                # model training
+                ''' model training '''
                 num_batch = 0
                 start = nowtime()
-                for time_batch, event_batch, featidx_batch, featval_batch, minhbs_natch, maxhbs_batch, max_nz_len \
-                        in train_data.make_sparse_batch(self.batch_size):
-
+                for hd_batch, featidx_batch, featval_batch, max_nz_len in train_data.make_sparse_batch(self.batch_size):
                     num_batch += 1
 
-                    _, loss_batch, _, event_batch, time_batch = sess.run([training_op, loss_mean,
-                                                                  acc_update, events, times],
-                                                                   feed_dict={
+                    _, loss_batch = sess.run([training_op, loss_mean],
+                                             feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
-                                             'min_headerbids:0': minhbs_natch,
-                                             'max_headerbids:0': maxhbs_batch,
-                                             'times:0': time_batch,
-                                             'events:0': event_batch})
+                                             'header_bids:0': hd_batch})
 
                     if epoch == 1:
                         print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
                               (epoch, num_batch, num_total_batches, loss_batch))
-                        print("                         time: %.4fs" % (nowtime() - start))
+                        print("\t\t\t\ttime: %.4fs" % (nowtime() - start))
                         start = nowtime()
 
 
                 # evaluation on training data
-                eval_nodes_update = [loss_update, acc_update, not_survival_proba]
-                eval_nodes_metric = [running_loss, running_acc]
+                eval_nodes_update = [loss_update, header_bids_pred]
+                eval_nodes_metric = [running_loss]
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
                 print('*** On Training Set:')
-                (loss_train, acc_train), _, _, _ = self.evaluate(train_data.make_sparse_batch(),
+                (loss_train), _, _ = self.evaluate(train_data.make_sparse_batch(),
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
                                                                  sample_weights)
-                # print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_train, acc_train))
+                print("TENSORFLOW:\tMSE = %.6f" % (loss_train))
 
                 # evaluation on validation data
                 print('*** On Validation Set:')
-                (loss_val, acc_val), not_survival_val, events_val, times_val = self.evaluate(val_data.make_sparse_batch(),
+                (loss_val), hb_pred_val, hb_true_val = self.evaluate(val_data.make_sparse_batch(),
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
-                # print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_val, acc_val))
-                print("Validation C-Index = %.4f" % c_index(events_val, not_survival_val, times_val))
-
+                print("TENSORFLOW:\tMSE = %.6f" % (loss_val))
 
 
                 if max_loss_val is None or loss_val < max_loss_val:
@@ -201,111 +168,77 @@ class HBPredictionModel:
 
                     # evaluation on test data
                     print('*** On Test Set:')
-                    (loss_test, acc_test), not_survival_test, events_test, times_test = self.evaluate(
-                        test_data.make_sparse_batch(),
-                        running_vars_initializer, sess,
-                        eval_nodes_update, eval_nodes_metric,
-                        sample_weights)
-                    # print("TENSORFLOW:\tloss = %.6f\taccuracy = %.4f" % (loss_test, acc_test))
-                    print("TEST C-Index = %.4f" % c_index(events_test, not_survival_test, times_test))
-
-
-                    # Store prediction results
-                    with open('output/all_predictions_factorized.csv', 'w', newline="\n") as outfile:
-                        csv_writer = csv.writer(outfile)
-                        csv_writer.writerow(('NOT_SURV_PROB', 'EVENTS', 'TIMES'))
-                        for p, e, t in zip(not_survival_val, events_val, times_val):
-                            csv_writer.writerow((p, e, t))
-                    print('All predictions are outputted for error analysis')
-
-                    # Store parameters
-                    params = {'embeddings_linear': embeddings_linear.eval(),
-                              'intercept': intercept.eval(),
-                              'shape': self.distribution.shape,
-                              'distribution_name': type(self.distribution).__name__}
-                    if embeddings_factorized is not None:
-                        params['embeddings_factorized'] = embeddings_factorized.eval(),
-                    pickle.dump(params, open('output/params_k%d.pkl' % self.k, 'wb'))
-
-
+                    (loss_test), hb_pred_test, hb_true_test = self.evaluate(test_data.make_sparse_batch(),
+                                                                            running_vars_initializer, sess,
+                                                                            eval_nodes_update, eval_nodes_metric,
+                                                                            sample_weights)
+                    print("TENSORFLOW:\tMSE = %.6f" % (loss_test))
 
 
 
     def evaluate(self, next_batch, running_init, sess, updates, metrics, sample_weights=None):
-        all_not_survival = []
-        all_events = []
-        all_times = []
+        all_hb_pred = []
+        all_hb_true = []
         sess.run(running_init)
-        for time_batch, event_batch, featidx_batch, featval_batch, minhbs_natch, maxhbs_batch, max_nz_len in next_batch:
-            _, _, not_survival  = sess.run(updates, feed_dict={
+        for hb_batch, featidx_batch, featval_batch, max_nz_len in next_batch:
+            _, hb_pred  = sess.run(updates, feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
-                                             'min_headerbids:0': minhbs_natch,
-                                             'max_headerbids:0': maxhbs_batch,
-                                             'times:0': time_batch,
-                                             'events:0': event_batch})
-            all_not_survival.extend(not_survival)
-            all_events.extend(event_batch)
-            all_times.extend(time_batch)
+                                             'header_bids:0': hb_batch})
+            all_hb_pred.extend(hb_pred)
+            all_hb_true.extend(hb_batch)
 
-        all_not_survival = np.array(all_not_survival, dtype=np.float64)
-        all_not_survival_bin = np.where(all_not_survival>=0.5, 1.0, 0.0)
-        all_events = np.array(all_events, dtype=np.float64)
+        all_hb_pred = np.array(all_hb_pred, dtype=np.float64)
+        all_hb_true = np.array(all_hb_true, dtype=np.float64)
 
         if not sample_weights:
-            print("SKLEARN:\tLOGLOSS = %.6f,\tAccuracy = %.4f" % (log_loss(all_events, all_not_survival),
-                                                                   accuracy_score(all_events, all_not_survival_bin)))
+            print("SKLEARN:\tMSE = %.6f" % (mean_squared_error(all_hb_true, all_hb_pred)))
         elif sample_weights == 'time':
-            print("SKLEARN:\tLOGLOSS = %.6f,\tAccuracy = %.4f" % (log_loss(all_events, all_not_survival,
-                                                                                    sample_weight=all_times),
-                                                                   accuracy_score(all_events, all_not_survival_bin,
-                                                                                  sample_weight=all_times)))
-        return sess.run(metrics), all_not_survival, all_events, all_times
+            print("SKLEARN:\tMSE = %.6f" % (mean_squared_error(all_hb_true, all_hb_pred, sample_weight=all_hb_true)))
+        return sess.run(metrics), all_hb_pred, all_hb_true
 
 
 
 if __name__ == "__main__":
     if MODE == 'all_agents':
-        hb_data = HeaderBiddingData()
+        hb_data_train = HeaderBiddingData()
+        hb_data_val = HeaderBiddingData()
+        hb_data_test = HeaderBiddingData()
         for i, hb_agent_name in enumerate(HEADER_BIDDING_KEYS):
-            headerbids, sparse_features = load_hb_data(hb_agent_name)
-            print("BEFORE ADDING AGENT: %d instances and %d features" % sparse_features.shape)
+            print("HB AGENT (%d/%d) %s:" % (i + 1, len(HEADER_BIDDING_KEYS), hb_agent_name))
+            hb_data_train.add_data(*load_hb_data_all_agents(ALL_AGENTS_DIR, hb_agent_name, 'train'))
+            hb_data_val.add_data(*load_hb_data_all_agents(ALL_AGENTS_DIR, hb_agent_name, 'val'))
+            hb_data_test.add_data(*load_hb_data_all_agents(ALL_AGENTS_DIR, hb_agent_name, 'test'))
 
-            # add hb_agent as one additional feature
-            hb_agent_onehot = [float(hb_agent_name == agent) for agent in HEADER_BIDDING_KEYS]
-            hb_agent_onehot = hb_agent_onehot[:-1]  # skip the last one for dummy variable
-            sparse_features = hstack(
-                (np.array([hb_agent_onehot] * sparse_features.shape[0]),
-                 sparse_features)
-            )
-            print("AFTER ADDING AGENT: %d data entries and %d features" % sparse_features.shape)
-            hb_data.add_data(headerbids, sparse_features)
-
-        print("BEFORE ADDING AGENT: %d instances and %d features" % (hb_data.num_instances(), hb_data.num_features()))
-
+        print('Building model...')
         model = HBPredictionModel(batch_size=2048,
                                   num_epochs=10,
-                                  k=80,
+                                  k=20,
                                   learning_rate=1e-3,
                                   lambda_linear=1e-7,
                                   lambda_factorized=1e-7)
 
         print('Start training...')
-        # model.run_graph(num_features,
-        #                 SurvivalData(*pickle.load(open('output/TRAIN_SET.p', 'rb'))),
-        #                 SurvivalData(*pickle.load(open('output/VAL_SET.p', 'rb'))),
-        #                 SurvivalData(*pickle.load(open('output/TEST_SET.p', 'rb'))),
-        #                 sample_weights='time')
+        model.run_graph(hb_data_train,
+                        hb_data_val,
+                        hb_data_test)
 
 
     elif MODE == 'one_agent':
         for i, hb_agent_name in enumerate(HEADER_BIDDING_KEYS):
-            headerbids, sparse_features = load_hb_data(hb_agent_name)
-            print("%d instances and %d features" % sparse_features.shape)
+            hb_data_train = HeaderBiddingData()
+            hb_data_val = HeaderBiddingData()
+            hb_data_test = HeaderBiddingData()
 
-            hb_data = HeaderBiddingData()
-            hb_data.add_data(headerbids, sparse_features)
 
+
+            hb_data_train.add_data(*load_hb_data_one_agent(ONE_AGENT_DIR, hb_agent_name, 'train'))
+            hb_data_val.add_data(*load_hb_data_one_agent(ONE_AGENT_DIR, hb_agent_name, 'val'))
+            hb_data_test.add_data(*load_hb_data_one_agent(ONE_AGENT_DIR, hb_agent_name, 'test'))
+
+            print("%d instances and %d features" % (hb_data_train.num_instances(), hb_data_train.num_features()))
+
+            print('Building model...')
             model = HBPredictionModel(batch_size=2048,
                                       num_epochs=10,
                                       k=80,
@@ -314,8 +247,6 @@ if __name__ == "__main__":
                                       lambda_factorized=1e-7)
 
             print('Start training...')
-            # model.run_graph(num_features,
-            #                 SurvivalData(*pickle.load(open('output/TRAIN_SET.p', 'rb'))),
-            #                 SurvivalData(*pickle.load(open('output/VAL_SET.p', 'rb'))),
-            #                 SurvivalData(*pickle.load(open('output/TEST_SET.p', 'rb'))),
-            #                 sample_weights='time')
+            model.run_graph(hb_data_train,
+                            hb_data_val,
+                            hb_data_test)
