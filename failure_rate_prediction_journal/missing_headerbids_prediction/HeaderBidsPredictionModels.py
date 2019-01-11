@@ -83,7 +83,7 @@ class HBPredictionModel:
             batch_loss = tf.losses.mean_squared_error(labels=header_bids_true,
                                                       predictions=header_bids_pred,
                                                       reduction = tf.losses.Reduction.MEAN)
-        elif sample_weights == 'time':
+        elif sample_weights == 'hb':
             batch_loss = tf.losses.mean_squared_error(labels=header_bids_true,
                                                       predictions=header_bids_pred,
                                                       weights=header_bids_true,
@@ -121,20 +121,22 @@ class HBPredictionModel:
             init.run()
 
             max_loss_val = None
-            num_total_batches = int(np.ceil(train_data.num_instances / self.batch_size))
+            num_total_batches = int(np.ceil(train_data.num_instances() / self.batch_size))
             for epoch in range(1, self.num_epochs + 1):
                 sess.run(running_vars_initializer)
                 ''' model training '''
                 num_batch = 0
                 start = nowtime()
-                for hd_batch, featidx_batch, featval_batch, max_nz_len in train_data.make_sparse_batch(self.batch_size):
+                for hb_batch, featidx_batch, featval_batch, max_nz_len in train_data.make_sparse_batch(self.batch_size):
                     num_batch += 1
+
+                    print(hb_batch, featidx_batch, featval_batch, max_nz_len)
 
                     _, loss_batch = sess.run([training_op, loss_mean],
                                              feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
-                                             'header_bids:0': hd_batch})
+                                             'header_bids:0': hb_batch})
 
                     if epoch == 1:
                         print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
@@ -211,6 +213,7 @@ if __name__ == "__main__":
             hb_data_train.add_data(*load_hb_data_all_agents(ALL_AGENTS_DIR, hb_agent_name, 'train'))
             hb_data_val.add_data(*load_hb_data_all_agents(ALL_AGENTS_DIR, hb_agent_name, 'val'))
             hb_data_test.add_data(*load_hb_data_all_agents(ALL_AGENTS_DIR, hb_agent_name, 'test'))
+
 
         print('Building model...')
         model = HBPredictionModel(batch_size=2048,
