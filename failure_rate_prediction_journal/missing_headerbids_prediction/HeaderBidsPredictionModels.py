@@ -17,8 +17,9 @@ ONE_AGENT_DIR = os.path.join(INPUT_DIR, 'one_agent_vectorization')
 
 class HBPredictionModel:
 
-    def __init__(self, batch_size, num_epochs, k, learning_rate=0.001,
+    def __init__(self, batch_size, num_epochs, k, distribution=None, learning_rate=0.001,
                  lambda_linear=0.0, lambda_factorized=0.0):
+        self.distribution = distribution
         self.batch_size = batch_size
         self.num_epochs = num_epochs
         self.k = k
@@ -53,7 +54,7 @@ class HBPredictionModel:
         feature_indice = tf.placeholder(tf.int32, name='feature_indice')
         feature_values = tf.placeholder(tf.float32, name='feature_values')
 
-        header_bids_ture = tf.placeholder(tf.float32, name='header_bids')
+        header_bids_true = tf.placeholder(tf.float32, name='header_bids')
 
         # shape: (batch_size, max_nonzero_len)
         embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=1e-5))
@@ -72,19 +73,20 @@ class HBPredictionModel:
 
 
         # TODO: add Gumbel distribution
+        # if distribution == :
         ''' Gumbel Distribution '''
         header_bids_pred = scale
 
 
         batch_loss = None
         if not sample_weights:
-            batch_loss = tf.losses.mean_squared_error(labels=header_bids_ture,
+            batch_loss = tf.losses.mean_squared_error(labels=header_bids_true,
                                                       predictions=header_bids_pred,
                                                       reduction = tf.losses.Reduction.MEAN)
         elif sample_weights == 'time':
-            batch_loss = tf.losses.mean_squared_error(labels=header_bids_ture,
+            batch_loss = tf.losses.mean_squared_error(labels=header_bids_true,
                                                       predictions=header_bids_pred,
-                                                      weights=header_bids_ture,
+                                                      weights=header_bids_true,
                                                       reduction = tf.losses.Reduction.MEAN)
         running_loss, loss_update = tf.metrics.mean(batch_loss)
 
@@ -239,7 +241,8 @@ if __name__ == "__main__":
             print("%d instances and %d features" % (hb_data_train.num_instances(), hb_data_train.num_features()))
 
             print('Building model...')
-            model = HBPredictionModel(batch_size=2048,
+            model = HBPredictionModel(distribution=None,
+                                      batch_size=2048,
                                       num_epochs=10,
                                       k=80,
                                       learning_rate=1e-3,
