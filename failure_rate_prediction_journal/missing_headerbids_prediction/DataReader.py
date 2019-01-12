@@ -43,15 +43,17 @@ class HeaderBiddingData:
         start_index = 0
         while start_index < self.num_instances():
             batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :]
+            print(batch_feat_mat)
             # padding
             feat_indices_batch = np.split(batch_feat_mat.indices, batch_feat_mat.indptr)[1:-1]
             feat_values_batch = np.split(batch_feat_mat.data, batch_feat_mat.indptr)[1:-1]
-            feat_indices_batch = pad_sequences(feat_indices_batch, maxlen=self.max_nonzero_len, padding='post', value=0)
-            feat_values_batch = pad_sequences(feat_values_batch, maxlen=self.max_nonzero_len, padding='post', value=0.0, dtype='float32')
+            feat_indices_batch = pad_sequences(feat_indices_batch, maxlen=self.max_nonzero_len,
+                                               padding='post', value=0)
+            feat_values_batch = pad_sequences(feat_values_batch, maxlen=self.max_nonzero_len,
+                                              padding='post', value=0.0, dtype='float32')
             yield self.headerbids[start_index: start_index + batch_size], \
                   feat_indices_batch, \
-                  feat_values_batch, \
-                  self.max_nonzero_len
+                  feat_values_batch
             start_index += batch_size
 
 
@@ -101,9 +103,8 @@ if __name__ == "__main__":
         headerbids, sparse_features = load_hb_data_all_agents(INPUT_DIR, hd_agent_name, 'train')
         train_data.add_data(headerbids, sparse_features)
 
-    for hb, f_ind, f_val, max_nonzero_len in train_data.make_sparse_batch(1):
+    for hb, f_ind, f_val in train_data.make_sparse_batch(1):
         print(hb)
         print(f_ind)
         print(f_val)
-        print(max_nonzero_len)
         print()
