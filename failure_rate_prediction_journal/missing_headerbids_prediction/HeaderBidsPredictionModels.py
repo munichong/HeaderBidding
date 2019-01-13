@@ -39,7 +39,7 @@ class HBPredictionModel:
         return pairs_mulsum
 
 
-    def run_graph(self, train_data, val_data, test_data, sample_weights='hb'):
+    def run_graph(self, train_data, val_data, test_data):
         '''
 
         :param distribution:
@@ -74,15 +74,12 @@ class HBPredictionModel:
         # if distribution == :
         ''' Gumbel Distribution '''
         header_bids_pred = tf.nn.relu(scale)
+        # header_bids_pred = scale
+        #
+        # header_bids_true = tf.log(header_bids_true)
 
 
-        batch_loss = None
-        if not sample_weights:
-            batch_loss = tf.losses.mean_squared_error(labels=header_bids_true,
-                                                      predictions=header_bids_pred,
-                                                      reduction = tf.losses.Reduction.MEAN)
-        elif sample_weights == 'hb':
-            batch_loss = tf.losses.mean_squared_error(labels=header_bids_true,
+        batch_loss = tf.losses.mean_squared_error(labels=header_bids_true,
                                                       predictions=header_bids_pred,
                                                       weights=header_bids_true,
                                                       reduction = tf.losses.Reduction.MEAN)
@@ -159,16 +156,16 @@ class HBPredictionModel:
                 loss_train, _, _ = self.evaluate(train_data.make_sparse_batch(),
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
-                                                                 sample_weights)
-                print("TENSORFLOW:\tMSE = %.6f" % loss_train[0])
+                                                                 )
+                # print("TENSORFLOW:\tMSE = %.6f" % loss_train[0])
 
                 # evaluation on validation data
                 print('*** On Validation Set:')
                 loss_val, hb_pred_val, hb_true_val = self.evaluate(val_data.make_sparse_batch(),
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
-                                                           sample_weights)
-                print("TENSORFLOW:\tMSE = %.6f" % loss_val[0])
+                                                           )
+                # print("TENSORFLOW:\tMSE = %.6f" % loss_val[0])
 
 
                 if max_loss_val is None or loss_val < max_loss_val:
@@ -180,12 +177,12 @@ class HBPredictionModel:
                     loss_test, hb_pred_test, hb_true_test = self.evaluate(test_data.make_sparse_batch(),
                                                                             running_vars_initializer, sess,
                                                                             eval_nodes_update, eval_nodes_metric,
-                                                                            sample_weights)
-                    print("TENSORFLOW:\tMSE = %.6f" % loss_test[0])
+                                                                            )
+                    # print("TENSORFLOW:\tMSE = %.6f" % loss_test[0])
 
 
 
-    def evaluate(self, next_batch, running_init, sess, updates, metrics, sample_weights=None):
+    def evaluate(self, next_batch, running_init, sess, updates, metrics):
         all_hb_pred = []
         all_hb_true = []
         sess.run(running_init)
@@ -200,10 +197,7 @@ class HBPredictionModel:
         all_hb_pred = np.array(all_hb_pred, dtype=np.float32)
         all_hb_true = np.array(all_hb_true, dtype=np.float32)
 
-        if not sample_weights:
-            print("SKLEARN:\tMSE = %.6f" % (mean_squared_error(all_hb_true, all_hb_pred)))
-        elif sample_weights == 'hb':
-            print("SKLEARN:\tMSE = %.6f" % (mean_squared_error(all_hb_true, all_hb_pred, sample_weight=all_hb_true)))
+        print("SKLEARN:\tMSE = %.6f" % (mean_squared_error(all_hb_true, all_hb_pred)))
         return sess.run(metrics), all_hb_pred, all_hb_true
 
 
