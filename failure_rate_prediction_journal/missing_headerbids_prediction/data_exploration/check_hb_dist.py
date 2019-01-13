@@ -1,9 +1,12 @@
 import os
+import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 from failure_rate_prediction_journal.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
 from failure_rate_prediction_journal.missing_headerbids_prediction.DataReader import _load_headerbids_file
 
+
+HB_OUTLIER_THLD = 5.0
 
 INPUT_DIR = '../../output'
 ALL_AGENTS_DIR = os.path.join(INPUT_DIR, 'all_agents_vectorization')
@@ -14,6 +17,13 @@ for i, hb_agent_name in enumerate(HEADER_BIDDING_KEYS):
         for data_type in ['train', 'val', 'test']:
             hb_data.extend(_load_headerbids_file(ALL_AGENTS_DIR, hb_agent_name, data_type))
 
+hb_data = np.array(hb_data)
+# hb_data = hb_data[hb_data < HB_OUTLIER_THLD]
+hb_data = np.log(hb_data)
+
+
+plt.hist(hb_data, bins=200)
+plt.show()
 
 print()
 print(stats.describe(hb_data))
