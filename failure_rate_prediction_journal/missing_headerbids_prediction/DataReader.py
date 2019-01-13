@@ -79,10 +79,8 @@ def _load_headerbids_file(dir_path, hb_agent_name, data_type):
 def _filter_outliers(headerbids, sparse_features):
     headerbids = np.array(headerbids)
     mask = headerbids < HB_OUTLIER_THLD
-    assert sparse_features.shape[0] == len(headerbids) == len(mask)
     headerbids = headerbids[mask]
     sparse_features = sparse_features[mask, :]
-    assert sparse_features.shape[0] == len(headerbids)
     return headerbids, sparse_features
 
 def load_hb_data_one_agent(dir_path, hb_agent_name, data_type):
