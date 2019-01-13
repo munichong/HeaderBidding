@@ -57,11 +57,13 @@ class HeaderBiddingData:
             start_index += batch_size
 
 
-def load_hb_data_one_agent(dir_path, hb_agent_name, data_type):
-    sparse_features = sparse.load_npz(os.path.join(dir_path,
-                                                   '%s_featvec_%s.csr.npz' %
-                                                   (hb_agent_name, data_type)))
-    headerbids = list(
+def _load_sparsefeatures_file(dir_path, hb_agent_name, data_type):
+    return sparse.load_npz(os.path.join(dir_path,
+                                        '%s_featvec_%s.csr.npz' %
+                                        (hb_agent_name, data_type)))
+
+def _load_headerbids_file(dir_path, hb_agent_name, data_type):
+    return list(
         map(
             float,
             open(os.path.join(dir_path,
@@ -70,6 +72,10 @@ def load_hb_data_one_agent(dir_path, hb_agent_name, data_type):
                 .read().splitlines()
         )
     )
+
+def load_hb_data_one_agent(dir_path, hb_agent_name, data_type):
+    sparse_features = _load_sparsefeatures_file(dir_path, hb_agent_name, data_type)
+    headerbids = _load_headerbids_file(dir_path, hb_agent_name, data_type)
     return headerbids, sparse_features
 
 def load_hb_data_all_agents(dir_path, hb_agent_name, data_type):
