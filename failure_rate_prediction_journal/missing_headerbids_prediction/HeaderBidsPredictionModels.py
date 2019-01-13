@@ -216,7 +216,7 @@ if __name__ == "__main__":
 
         print('Building model...')
         model = HBPredictionModel(batch_size=2048,
-                                  num_epochs=10,
+                                  num_epochs=20,
                                   k=60,
                                   learning_rate=1e-3,
                                   lambda_linear=0.0,
