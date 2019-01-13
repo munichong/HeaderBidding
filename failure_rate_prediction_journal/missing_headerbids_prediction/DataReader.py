@@ -43,7 +43,7 @@ class HeaderBiddingData:
         start_index = 0
         while start_index < self.num_instances():
             batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :]
-            print(batch_feat_mat)
+            # print(batch_feat_mat)
             # padding
             feat_indices_batch = np.split(batch_feat_mat.indices, batch_feat_mat.indptr)[1:-1]
             feat_values_batch = np.split(batch_feat_mat.data, batch_feat_mat.indptr)[1:-1]

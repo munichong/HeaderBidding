@@ -47,25 +47,23 @@ class HBPredictionModel:
         :param k: the dimensionality of the embedding, Must be >= 0; when k=0, it is a simple model; Otherwise it is factorized
         :return:
         '''
-
         num_features = train_data.num_features()
 
         # INPUTs
         feature_indice = tf.placeholder(tf.int32, name='feature_indice')
         feature_values = tf.placeholder(tf.float32, name='feature_values')
-
         header_bids_true = tf.placeholder(tf.float32, name='header_bids')
 
         # shape: (batch_size, max_nonzero_len)
-        embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=1e-5))
+        embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.1, stddev=0.5))
         filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
-        intercept = tf.Variable(1e-5)
+        intercept = tf.Variable(0.5)
         scale = self.linear_function(filtered_embeddings_linear, intercept)
 
         embeddings_factorized = None
         if self.k > 0:
             # shape: (batch_size, max_nonzero_len, k)
-            embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=1e-5))
+            embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.1, stddev=0.5))
             filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
                                       tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
             factorized_term = self.factorization_machines(filtered_embeddings_factorized)
@@ -75,7 +73,7 @@ class HBPredictionModel:
         # TODO: add Gumbel distribution
         # if distribution == :
         ''' Gumbel Distribution '''
-        header_bids_pred = scale
+        header_bids_pred = tf.nn.relu(scale)
 
 
         batch_loss = None
@@ -98,15 +96,16 @@ class HBPredictionModel:
         sum_l2_norm = tf.constant(self.lambda_factorized) * tf.reduce_sum(l2_norm)
 
 
-        loss_mean = batch_loss + sum_l2_norm
+        loss_mean = batch_loss \
+                    # + sum_l2_norm
 
-        # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
+        training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
 
         ### gradient clipping
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-        gradients, variables = zip(*optimizer.compute_gradients(loss_mean))
-        gradients_clipped, _ = tf.clip_by_global_norm(gradients, 5.0)
-        training_op = optimizer.apply_gradients(zip(gradients_clipped, variables))
+        # optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        # gradients, variables = zip(*optimizer.compute_gradients(loss_mean))
+        # gradients_clipped, _ = tf.clip_by_global_norm(gradients, 5.0)
+        # training_op = optimizer.apply_gradients(zip(gradients_clipped, variables))
 
 
         # Isolate the variables stored behind the scenes by the metric operation
@@ -127,14 +126,23 @@ class HBPredictionModel:
                 ''' model training '''
                 num_batch = 0
                 start = nowtime()
-                for hb_batch, featidx_batch, featval_batch, max_nz_len in train_data.make_sparse_batch(self.batch_size):
+                for hb_batch, featidx_batch, featval_batch in train_data.make_sparse_batch(self.batch_size):
                     num_batch += 1
 
-                    _, loss_batch = sess.run([training_op, loss_mean],
+                    # print(hb_batch)
+                    # print(featidx_batch)
+                    # print(featval_batch)
+
+                    _, loss_batch, hb_pred, embed_l = sess.run([training_op, loss_mean, header_bids_pred,
+                                                                     embeddings_linear],
                                              feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
                                              'header_bids:0': hb_batch})
+
+                    # print(hb_batch)
+                    # print(hb_pred)
+                    # print(embed_l)
 
                     if epoch == 1:
                         print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
@@ -142,26 +150,25 @@ class HBPredictionModel:
                         print("\t\t\t\ttime: %.4fs" % (nowtime() - start))
                         start = nowtime()
 
-
                 # evaluation on training data
                 eval_nodes_update = [loss_update, header_bids_pred]
                 eval_nodes_metric = [running_loss]
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
                 print('*** On Training Set:')
-                (loss_train), _, _ = self.evaluate(train_data.make_sparse_batch(),
+                loss_train, _, _ = self.evaluate(train_data.make_sparse_batch(),
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
                                                                  sample_weights)
-                print("TENSORFLOW:\tMSE = %.6f" % (loss_train))
+                print("TENSORFLOW:\tMSE = %.6f" % loss_train[0])
 
                 # evaluation on validation data
                 print('*** On Validation Set:')
-                (loss_val), hb_pred_val, hb_true_val = self.evaluate(val_data.make_sparse_batch(),
+                loss_val, hb_pred_val, hb_true_val = self.evaluate(val_data.make_sparse_batch(),
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
-                print("TENSORFLOW:\tMSE = %.6f" % (loss_val))
+                print("TENSORFLOW:\tMSE = %.6f" % loss_val[0])
 
 
                 if max_loss_val is None or loss_val < max_loss_val:
@@ -170,11 +177,11 @@ class HBPredictionModel:
 
                     # evaluation on test data
                     print('*** On Test Set:')
-                    (loss_test), hb_pred_test, hb_true_test = self.evaluate(test_data.make_sparse_batch(),
+                    loss_test, hb_pred_test, hb_true_test = self.evaluate(test_data.make_sparse_batch(),
                                                                             running_vars_initializer, sess,
                                                                             eval_nodes_update, eval_nodes_metric,
                                                                             sample_weights)
-                    print("TENSORFLOW:\tMSE = %.6f" % (loss_test))
+                    print("TENSORFLOW:\tMSE = %.6f" % loss_test[0])
 
 
 
@@ -182,7 +189,7 @@ class HBPredictionModel:
         all_hb_pred = []
         all_hb_true = []
         sess.run(running_init)
-        for hb_batch, featidx_batch, featval_batch, max_nz_len in next_batch:
+        for hb_batch, featidx_batch, featval_batch in next_batch:
             _, hb_pred  = sess.run(updates, feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
@@ -190,12 +197,12 @@ class HBPredictionModel:
             all_hb_pred.extend(hb_pred)
             all_hb_true.extend(hb_batch)
 
-        all_hb_pred = np.array(all_hb_pred, dtype=np.float64)
-        all_hb_true = np.array(all_hb_true, dtype=np.float64)
+        all_hb_pred = np.array(all_hb_pred, dtype=np.float32)
+        all_hb_true = np.array(all_hb_true, dtype=np.float32)
 
         if not sample_weights:
             print("SKLEARN:\tMSE = %.6f" % (mean_squared_error(all_hb_true, all_hb_pred)))
-        elif sample_weights == 'time':
+        elif sample_weights == 'hb':
             print("SKLEARN:\tMSE = %.6f" % (mean_squared_error(all_hb_true, all_hb_pred, sample_weight=all_hb_true)))
         return sess.run(metrics), all_hb_pred, all_hb_true
 
@@ -212,13 +219,14 @@ if __name__ == "__main__":
             hb_data_val.add_data(*load_hb_data_all_agents(ALL_AGENTS_DIR, hb_agent_name, 'val'))
             hb_data_test.add_data(*load_hb_data_all_agents(ALL_AGENTS_DIR, hb_agent_name, 'test'))
 
+
         print('Building model...')
         model = HBPredictionModel(batch_size=2048,
                                   num_epochs=10,
-                                  k=20,
+                                  k=60,
                                   learning_rate=1e-3,
-                                  lambda_linear=1e-7,
-                                  lambda_factorized=1e-7)
+                                  lambda_linear=0.0,
+                                  lambda_factorized=0.0)
 
         print('Start training...')
         model.run_graph(hb_data_train,
@@ -244,10 +252,10 @@ if __name__ == "__main__":
             model = HBPredictionModel(distribution=None,
                                       batch_size=2048,
                                       num_epochs=10,
-                                      k=80,
+                                      k=20,
                                       learning_rate=1e-3,
-                                      lambda_linear=1e-7,
-                                      lambda_factorized=1e-7)
+                                      lambda_linear=0.0,
+                                      lambda_factorized=0.0)
 
             print('Start training...')
             model.run_graph(hb_data_train,
