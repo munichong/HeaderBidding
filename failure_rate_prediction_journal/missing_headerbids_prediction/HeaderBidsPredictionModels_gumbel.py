@@ -69,11 +69,7 @@ class HBPredictionModel:
             factorized_term = self.factorization_machines(filtered_embeddings_factorized)
             scale += factorized_term
 
-
-        # TODO: add Gumbel distribution
-        # if distribution == :
-        ''' Gumbel Distribution '''
-        # header_bids_pred = tf.nn.relu(scale)
+        ''' log(y) '''
         header_bids_pred = tf.exp(scale)
 
 
