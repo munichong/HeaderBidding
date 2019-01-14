@@ -212,7 +212,7 @@ if __name__ == "__main__":
         print('Building model...')
         model = HBPredictionModel(batch_size=2048,
                                   num_epochs=20,
-                                  k=100,
+                                  k=20,
                                   learning_rate=1e-4,
                                   lambda_linear=0.0,
                                   lambda_factorized=0.0)
@@ -238,11 +238,10 @@ if __name__ == "__main__":
             print("%d instances and %d features" % (hb_data_train.num_instances(), hb_data_train.num_features()))
 
             print('Building model...')
-            model = HBPredictionModel(distribution=None,
-                                      batch_size=2048,
-                                      num_epochs=10,
+            model = HBPredictionModel(batch_size=2048,
+                                      num_epochs=20,
                                       k=20,
-                                      learning_rate=1e-3,
+                                      learning_rate=1e-4,
                                       lambda_linear=0.0,
                                       lambda_factorized=0.0)
 
