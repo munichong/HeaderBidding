@@ -38,6 +38,10 @@ class HBPredictionModel:
                             axis=-1)
         return pairs_mulsum
 
+    def gumbelPDF(self, x, mu):
+        beta = 1
+        z = (x - mu) / beta
+        return 1 / beta * tf.exp(-(z + tf.exp(-z)))
 
     def run_graph(self, train_data, val_data, test_data):
         '''
@@ -58,7 +62,7 @@ class HBPredictionModel:
         embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=1e-5))
         filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
         intercept = tf.Variable(1e-5)
-        scale = self.linear_function(filtered_embeddings_linear, intercept)
+        header_bids_pred = self.linear_function(filtered_embeddings_linear, intercept)
 
         embeddings_factorized = None
         if self.k > 0:
@@ -67,10 +71,13 @@ class HBPredictionModel:
             filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
                                       tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
             factorized_term = self.factorization_machines(filtered_embeddings_factorized)
-            scale += factorized_term
+            header_bids_pred += factorized_term
 
-        ''' log(y) '''
-        header_bids_pred = tf.exp(scale)
+
+        prob = self.gumbelPDF(header_bids_true, header_bids_pred)
+        log_prob = tf.log(prob)
+        neg_log_likelihood = -1.0 * tf.reduce_sum(log_prob)
+
 
 
         batch_loss = tf.losses.mean_squared_error(labels=header_bids_true,
@@ -80,22 +87,22 @@ class HBPredictionModel:
 
 
         # L2 regularized sum of squares loss function over the embeddings
-        l2_norm = tf.constant(self.lambda_linear) * tf.pow(embeddings_linear, 2)
-        if embeddings_factorized is not None:
-            l2_norm += tf.reduce_sum(tf.pow(embeddings_factorized, 2), axis=-1)
-        sum_l2_norm = tf.constant(self.lambda_factorized) * tf.reduce_sum(l2_norm)
-
-
+        # l2_norm = tf.constant(self.lambda_linear) * tf.pow(embeddings_linear, 2)
+        # if embeddings_factorized is not None:
+        #     l2_norm += tf.reduce_sum(tf.pow(embeddings_factorized, 2), axis=-1)
+        # sum_l2_norm = tf.constant(self.lambda_factorized) * tf.reduce_sum(l2_norm)
+        #
+        #
         loss_mean = batch_loss \
                     # + sum_l2_norm
 
-        # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
+        training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(neg_log_likelihood)
 
         ### gradient clipping
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-        gradients, variables = zip(*optimizer.compute_gradients(loss_mean))
-        gradients_clipped, _ = tf.clip_by_global_norm(gradients, 5.0)
-        training_op = optimizer.apply_gradients(zip(gradients_clipped, variables))
+        # optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        # gradients, variables = zip(*optimizer.compute_gradients(loss_mean))
+        # gradients_clipped, _ = tf.clip_by_global_norm(gradients, 5.0)
+        # training_op = optimizer.apply_gradients(zip(gradients_clipped, variables))
 
 
         # Isolate the variables stored behind the scenes by the metric operation
@@ -140,7 +147,7 @@ class HBPredictionModel:
                         start = nowtime()
 
                 # evaluation on training data
-                eval_nodes_update = [loss_update, header_bids_pred]
+                eval_nodes_update = [neg_log_likelihood, header_bids_pred]
                 eval_nodes_metric = [running_loss]
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
