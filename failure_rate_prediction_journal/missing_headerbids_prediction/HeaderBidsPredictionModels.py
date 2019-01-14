@@ -55,15 +55,15 @@ class HBPredictionModel:
         header_bids_true = tf.placeholder(tf.float32, name='header_bids')
 
         # shape: (batch_size, max_nonzero_len)
-        embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.1, stddev=0.5))
+        embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=1e-5))
         filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
-        intercept = tf.Variable(0.5)
+        intercept = tf.Variable(1e-5)
         scale = self.linear_function(filtered_embeddings_linear, intercept)
 
         embeddings_factorized = None
         if self.k > 0:
             # shape: (batch_size, max_nonzero_len, k)
-            embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.1, stddev=0.5))
+            embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=1e-5))
             filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
                                       tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
             factorized_term = self.factorization_machines(filtered_embeddings_factorized)
@@ -73,15 +73,12 @@ class HBPredictionModel:
         # TODO: add Gumbel distribution
         # if distribution == :
         ''' Gumbel Distribution '''
-        header_bids_pred = tf.nn.relu(scale)
-        # header_bids_pred = scale
-        #
-        # header_bids_true = tf.log(header_bids_true)
+        # header_bids_pred = tf.nn.relu(scale)
+        header_bids_pred = tf.exp(scale)
 
 
         batch_loss = tf.losses.mean_squared_error(labels=header_bids_true,
                                                       predictions=header_bids_pred,
-                                                      weights=header_bids_true,
                                                       reduction = tf.losses.Reduction.MEAN)
         running_loss, loss_update = tf.metrics.mean(batch_loss)
 
@@ -96,13 +93,13 @@ class HBPredictionModel:
         loss_mean = batch_loss \
                     # + sum_l2_norm
 
-        training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
+        # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
 
         ### gradient clipping
-        # optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-        # gradients, variables = zip(*optimizer.compute_gradients(loss_mean))
-        # gradients_clipped, _ = tf.clip_by_global_norm(gradients, 5.0)
-        # training_op = optimizer.apply_gradients(zip(gradients_clipped, variables))
+        optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        gradients, variables = zip(*optimizer.compute_gradients(loss_mean))
+        gradients_clipped, _ = tf.clip_by_global_norm(gradients, 5.0)
+        training_op = optimizer.apply_gradients(zip(gradients_clipped, variables))
 
 
         # Isolate the variables stored behind the scenes by the metric operation
@@ -130,16 +127,15 @@ class HBPredictionModel:
                     # print(featidx_batch)
                     # print(featval_batch)
 
-                    _, loss_batch, hb_pred, embed_l = sess.run([training_op, loss_mean, header_bids_pred,
-                                                                     embeddings_linear],
+                    _, loss_batch, hb_pred, hb_true = sess.run([training_op, loss_mean, header_bids_pred,
+                                                                header_bids_true],
                                              feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
                                              'header_bids:0': hb_batch})
 
-                    # print(hb_batch)
+                    # print(hb_true)
                     # print(hb_pred)
-                    # print(embed_l)
 
                     if epoch == 1:
                         print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
@@ -197,6 +193,9 @@ class HBPredictionModel:
         all_hb_pred = np.array(all_hb_pred, dtype=np.float32)
         all_hb_true = np.array(all_hb_true, dtype=np.float32)
 
+        # print(all_hb_pred)
+        # print(all_hb_true)
+
         print("SKLEARN:\tMSE = %.6f" % (mean_squared_error(all_hb_true, all_hb_pred)))
         return sess.run(metrics), all_hb_pred, all_hb_true
 
@@ -217,8 +216,8 @@ if __name__ == "__main__":
         print('Building model...')
         model = HBPredictionModel(batch_size=2048,
                                   num_epochs=20,
-                                  k=60,
-                                  learning_rate=1e-3,
+                                  k=100,
+                                  learning_rate=1e-4,
                                   lambda_linear=0.0,
                                   lambda_factorized=0.0)
 
