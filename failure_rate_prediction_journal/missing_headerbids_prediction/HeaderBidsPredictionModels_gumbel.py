@@ -167,7 +167,7 @@ class HBPredictionModel:
                 # print("TENSORFLOW:\tMSE = %.6f" % loss_val[0])
 
 
-                if max_loss_val is None or loss_val < max_loss_val:
+                if max_loss_val is None or loss_val > max_loss_val:
                     print("!!! GET THE LOWEST VAL LOSS !!!")
                     max_loss_val = loss_val
 
