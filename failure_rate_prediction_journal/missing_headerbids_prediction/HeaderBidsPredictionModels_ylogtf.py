@@ -145,19 +145,19 @@ class HBPredictionModel:
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
                 print('*** On Training Set:')
-                loss_train, _, _ = self.evaluate(train_data.make_sparse_batch(),
+                [loss_train], _, _ = self.evaluate(train_data.make_sparse_batch(),
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
                                                                  )
-                # print("TENSORFLOW:\tMSE = %.6f" % loss_train[0])
+                print("TENSORFLOW:\tMSE = %.6f" % loss_train)
 
                 # evaluation on validation data
                 print('*** On Validation Set:')
-                loss_val, hb_pred_val, hb_true_val = self.evaluate(val_data.make_sparse_batch(),
+                [loss_val], hb_pred_val, hb_true_val = self.evaluate(val_data.make_sparse_batch(),
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            )
-                # print("TENSORFLOW:\tMSE = %.6f" % loss_val[0])
+                print("TENSORFLOW:\tMSE = %.6f" % loss_val)
 
 
                 if max_loss_val is None or loss_val < max_loss_val:
@@ -166,11 +166,11 @@ class HBPredictionModel:
 
                     # evaluation on test data
                     print('*** On Test Set:')
-                    loss_test, hb_pred_test, hb_true_test = self.evaluate(test_data.make_sparse_batch(),
+                    [loss_test], hb_pred_test, hb_true_test = self.evaluate(test_data.make_sparse_batch(),
                                                                             running_vars_initializer, sess,
                                                                             eval_nodes_update, eval_nodes_metric,
                                                                             )
-                    # print("TENSORFLOW:\tMSE = %.6f" % loss_test[0])
+                    print("TENSORFLOW:\tMSE = %.6f" % loss_test)
 
 
 
@@ -210,7 +210,7 @@ if __name__ == "__main__":
 
 
         print('Building model...')
-        model = HBPredictionModel(batch_size=2048,
+        model = HBPredictionModel(batch_size=512,
                                   num_epochs=20,
                                   k=20,
                                   learning_rate=1e-4,

@@ -73,7 +73,7 @@ class HBPredictionModel:
             location += factorized_term
 
         scale = tf.Variable(1.0)
-        positive_scale = tf.exp(scale)
+        positive_scale = tf.square(scale) + 1e-6
         log_prob = self.gumbelPDF(header_bids_true, location, positive_scale)
         neg_log_likelihood = tf.reduce_sum(log_prob)
 
