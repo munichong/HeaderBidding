@@ -212,7 +212,7 @@ if __name__ == "__main__":
         print('Building model...')
         model = HBPredictionModel(batch_size=512,
                                   num_epochs=20,
-                                  k=20,
+                                  k=40,
                                   learning_rate=1e-4,
                                   lambda_linear=0.0,
                                   lambda_factorized=0.0)
