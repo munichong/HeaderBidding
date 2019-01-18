@@ -19,11 +19,11 @@ def imp_entry_gen():
     for COLNAME, ImpressionEntry in [('NetworkBackfillImpressions', NetworkBackfillImpressionEntry),
                                      ('NetworkImpressions', NetworkImpressionEntry)]:
         col = client[DBNAME][COLNAME]
-        total_entires = col.find().count()
+        total_entries = col.find().count()
         n = 0
         for doc in col.find(projection=FEATURE_FIELDS, no_cursor_timeout=True):
             if n % 100000 == 0:
-                print('%d/%d (%.2f%%)' % (n, total_entires, n/total_entires*100))
+                print('%d/%d (%.2f%%)' % (n, total_entries, n/total_entries*100))
             n += 1
 
             imp_entry = ImpressionEntry(doc)
