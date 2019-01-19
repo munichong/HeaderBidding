@@ -1,7 +1,6 @@
 import os
-import csv
-import pickle
 import numpy as np
+import pandas as pd
 
 import tensorflow as tf
 from time import time as nowtime
@@ -9,7 +8,7 @@ from sklearn.metrics import mean_squared_error
 from failure_rate_prediction_journal.missing_headerbids_prediction.DataReader import HeaderBiddingData, load_hb_data_all_agents, load_hb_data_one_agent
 from failure_rate_prediction_journal.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
 
-MODE = 'all_agents'
+MODE = 'one_agent'
 INPUT_DIR = '../output'
 ALL_AGENTS_DIR = os.path.join(INPUT_DIR, 'all_agents_vectorization')
 ONE_AGENT_DIR = os.path.join(INPUT_DIR, 'one_agent_vectorization')
@@ -18,7 +17,7 @@ ONE_AGENT_DIR = os.path.join(INPUT_DIR, 'one_agent_vectorization')
 class HBPredictionModel:
 
     def __init__(self, batch_size, num_epochs, k, distribution=None, learning_rate=0.001,
-                 lambda_linear=0.0, lambda_factorized=0.0):
+                 lambda_linear=0.0, lambda_factorized=0.0, hb_agent=''):
         self.distribution = distribution
         self.batch_size = batch_size
         self.num_epochs = num_epochs
@@ -26,6 +25,7 @@ class HBPredictionModel:
         self.learning_rate = learning_rate
         self.lambda_linear = lambda_linear
         self.lambda_factorized = lambda_factorized
+        self.hb_agent_name = hb_agent
 
     def linear_function(self, weights_linear, intercept):
         return tf.reduce_sum(weights_linear, axis=-1) + intercept
@@ -39,7 +39,7 @@ class HBPredictionModel:
         return pairs_mulsum
 
 
-    def run_graph(self, train_data, val_data, test_data):
+    def run_graph(self, train_data, val_data, test_data, early_stop=False, verbose=True):
         '''
 
         :param distribution:
@@ -47,6 +47,8 @@ class HBPredictionModel:
         :param k: the dimensionality of the embedding, Must be >= 0; when k=0, it is a simple model; Otherwise it is factorized
         :return:
         '''
+        tf.reset_default_graph()
+
         num_features = train_data.num_features()
 
         # INPUTs
@@ -133,7 +135,7 @@ class HBPredictionModel:
                     # print(hb_true)
                     # print(hb_pred)
 
-                    if epoch == 1:
+                    if verbose and epoch == 1:
                         print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
                               (epoch, num_batch, num_total_batches, loss_batch))
                         print("\t\t\t\ttime: %.4fs" % (nowtime() - start))
@@ -171,6 +173,15 @@ class HBPredictionModel:
                                                                             eval_nodes_update, eval_nodes_metric,
                                                                             )
                     print("TENSORFLOW:\tMSE = %.6f" % loss_test)
+
+                    prediction_result = pd.DataFrame(
+                        {'y_pred': hb_pred_test,
+                         'y_true': hb_true_test
+                         })
+                    prediction_result.to_pickle(
+                        os.path.join(INPUT_DIR, 'prediction_result_ylogf_%s.pkl' % self.hb_agent_name))
+                elif early_stop:
+                    break
 
 
 
@@ -215,7 +226,8 @@ if __name__ == "__main__":
                                   k=40,
                                   learning_rate=1e-4,
                                   lambda_linear=0.0,
-                                  lambda_factorized=0.0)
+                                  lambda_factorized=0.0,
+                                  hb_agent=MODE)
 
         print('Start training...')
         model.run_graph(hb_data_train,
@@ -225,17 +237,14 @@ if __name__ == "__main__":
 
     elif MODE == 'one_agent':
         for i, hb_agent_name in enumerate(HEADER_BIDDING_KEYS):
+            print("\nHB AGENT (%d/%d) %s:" % (i + 1, len(HEADER_BIDDING_KEYS), hb_agent_name))
             hb_data_train = HeaderBiddingData()
             hb_data_val = HeaderBiddingData()
             hb_data_test = HeaderBiddingData()
 
-
-
             hb_data_train.add_data(*load_hb_data_one_agent(ONE_AGENT_DIR, hb_agent_name, 'train'))
             hb_data_val.add_data(*load_hb_data_one_agent(ONE_AGENT_DIR, hb_agent_name, 'val'))
             hb_data_test.add_data(*load_hb_data_one_agent(ONE_AGENT_DIR, hb_agent_name, 'test'))
-
-            print("%d instances and %d features" % (hb_data_train.num_instances(), hb_data_train.num_features()))
 
             print('Building model...')
             model = HBPredictionModel(batch_size=2048,
@@ -243,9 +252,23 @@ if __name__ == "__main__":
                                       k=20,
                                       learning_rate=1e-4,
                                       lambda_linear=0.0,
-                                      lambda_factorized=0.0)
+                                      lambda_factorized=0.0,
+                                      hb_agent=MODE)
 
             print('Start training...')
             model.run_graph(hb_data_train,
                             hb_data_val,
-                            hb_data_test)
+                            hb_data_test,
+                            early_stop=True,
+                            verbose=False
+                            )
+
+        y_pred = []
+        y_true = []
+        for i, hb_agent_name in enumerate(HEADER_BIDDING_KEYS):
+            pred_res = pd.read_pickle(os.path.join(INPUT_DIR, 'prediction_result_%s.pkl' % hb_agent_name))
+            y_pred.extend(pred_res['y_pred'])
+            y_true.extend(pred_res['y_true'])
+
+        print("\n###### FINAL EVALUATION RESULT ######")
+        print("SKLEARN:\tMSE = %.6f" % (mean_squared_error(y_true, y_pred)))
