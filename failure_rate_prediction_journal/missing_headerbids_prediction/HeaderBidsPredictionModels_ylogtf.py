@@ -247,8 +247,8 @@ if __name__ == "__main__":
             hb_data_test.add_data(*load_hb_data_one_agent(ONE_AGENT_DIR, hb_agent_name, 'test'))
 
             print('Building model...')
-            model = HBPredictionModel(batch_size=2048,
-                                      num_epochs=20,
+            model = HBPredictionModel(batch_size=512,
+                                      num_epochs=50,
                                       k=20,
                                       learning_rate=1e-4,
                                       lambda_linear=0.0,
