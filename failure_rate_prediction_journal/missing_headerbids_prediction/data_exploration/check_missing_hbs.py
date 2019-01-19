@@ -21,5 +21,5 @@ for imp_entry in imp_entry_gen():
     counter += np.array([int(hb!=None) for hb in headerbids])
 
 print()
-print("IN TOTAL: %d impressions: Pct: %s, Count: %s" %
+print("IN TOTAL: %d impressions: Pct: %s%%, Count: %s" %
     (total_entires, counter/total_entires*100.0, counter))

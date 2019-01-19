@@ -10,10 +10,11 @@ from sklearn.metrics import mean_squared_error
 from failure_rate_prediction_journal.missing_headerbids_prediction.DataReader import HeaderBiddingData, load_hb_data_all_agents, load_hb_data_one_agent
 from failure_rate_prediction_journal.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
 
-MODE = 'all_agents'
+MODE = 'one_agent'
 INPUT_DIR = '../output'
 ALL_AGENTS_DIR = os.path.join(INPUT_DIR, 'all_agents_vectorization')
-ONE_AGENT_DIR = os.path.join(INPUT_DIR, 'one_agent_vectorization')
+ONE_AGENT_DIR = os.path.join(INPUT_DIR, 'all_agents_vectorization')
+OUTPUT_PKL_NAME = """prediction_result_gumbel_%s.pkl"""
 
 
 class HBPredictionModel:
@@ -44,7 +45,7 @@ class HBPredictionModel:
         z = (x - mu) / scale
         return z + tf.exp(-z)
 
-    def run_graph(self, train_data, val_data, test_data, early_stop=False):
+    def run_graph(self, train_data, val_data, test_data, early_stop=False, verbose=True):
         '''
 
         :param distribution:
@@ -52,6 +53,8 @@ class HBPredictionModel:
         :param k: the dimensionality of the embedding, Must be >= 0; when k=0, it is a simple model; Otherwise it is factorized
         :return:
         '''
+        tf.reset_default_graph()
+
         num_features = train_data.num_features()
 
         # INPUTs
@@ -142,7 +145,7 @@ class HBPredictionModel:
                     # print(pos_scale)
                     # print(hb_pred)
 
-                    if epoch == 1:
+                    if verbose and epoch == 1:
                         print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
                               (epoch, num_batch, num_total_batches, loss_batch))
                         print("\t\t\t\ttime: %.4fs" % (nowtime() - start))
@@ -185,7 +188,7 @@ class HBPredictionModel:
                         {'y_pred': hb_pred_test,
                          'y_true': hb_true_test
                          })
-                    prediction_result.to_pickle(os.path.join(INPUT_DIR, 'prediction_result_%s.pkl' % self.hb_agent_name))
+                    prediction_result.to_pickle(os.path.join(INPUT_DIR, OUTPUT_PKL_NAME % self.hb_agent_name))
 
                 elif early_stop:
                     break
@@ -245,6 +248,7 @@ if __name__ == "__main__":
 
     elif MODE == 'one_agent':
         for i, hb_agent_name in enumerate(HEADER_BIDDING_KEYS):
+            print("\nHB AGENT (%d/%d) %s:" % (i + 1, len(HEADER_BIDDING_KEYS), hb_agent_name))
             hb_data_train = HeaderBiddingData()
             hb_data_val = HeaderBiddingData()
             hb_data_test = HeaderBiddingData()
@@ -254,11 +258,9 @@ if __name__ == "__main__":
             hb_data_val.add_data(*load_hb_data_one_agent(ONE_AGENT_DIR, hb_agent_name, 'val'))
             hb_data_test.add_data(*load_hb_data_one_agent(ONE_AGENT_DIR, hb_agent_name, 'test'))
 
-            print("%d instances and %d features" % (hb_data_train.num_instances(), hb_data_train.num_features()))
-
             print('Building model...')
-            model = HBPredictionModel(batch_size=2048,
-                                      num_epochs=20,
+            model = HBPredictionModel(batch_size=512,
+                                      num_epochs=50,
                                       k=20,
                                       learning_rate=1e-4,
                                       lambda_linear=0.0,
@@ -269,11 +271,12 @@ if __name__ == "__main__":
             model.run_graph(hb_data_train,
                             hb_data_val,
                             hb_data_test,
-                            early_stop=True)
+                            early_stop=True,
+                            verbose=False)
         y_pred = []
         y_true = []
         for i, hb_agent_name in enumerate(HEADER_BIDDING_KEYS):
-            pred_res = pd.read_pickle(os.path.join(INPUT_DIR, 'prediction_result_%s.csv' % hb_agent_name))
+            pred_res = pd.read_pickle(os.path.join(INPUT_DIR, OUTPUT_PKL_NAME % hb_agent_name))
             y_pred.extend(pred_res['y_pred'])
             y_true.extend(pred_res['y_true'])
 

@@ -12,7 +12,7 @@ MODE = 'one_agent'
 INPUT_DIR = '../output'
 ALL_AGENTS_DIR = os.path.join(INPUT_DIR, 'all_agents_vectorization')
 ONE_AGENT_DIR = os.path.join(INPUT_DIR, 'one_agent_vectorization')
-
+OUTPUT_PKL_NAME = """prediction_result_ylogtf_%s.pkl"""
 
 class HBPredictionModel:
 
@@ -179,7 +179,7 @@ class HBPredictionModel:
                          'y_true': hb_true_test
                          })
                     prediction_result.to_pickle(
-                        os.path.join(INPUT_DIR, 'prediction_result_ylogf_%s.pkl' % self.hb_agent_name))
+                        os.path.join(INPUT_DIR, OUTPUT_PKL_NAME % self.hb_agent_name))
                 elif early_stop:
                     break
 
@@ -266,7 +266,7 @@ if __name__ == "__main__":
         y_pred = []
         y_true = []
         for i, hb_agent_name in enumerate(HEADER_BIDDING_KEYS):
-            pred_res = pd.read_pickle(os.path.join(INPUT_DIR, 'prediction_result_%s.pkl' % hb_agent_name))
+            pred_res = pd.read_pickle(os.path.join(INPUT_DIR, OUTPUT_PKL_NAME % hb_agent_name))
             y_pred.extend(pred_res['y_pred'])
             y_true.extend(pred_res['y_true'])
 
