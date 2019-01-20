@@ -7,8 +7,7 @@ from collections import defaultdict, Counter
 
 
 PARTITION_DIR = '../output/missing_headerbids_data_partitions'
-VECTOR_ONE_DIR = '../output/one_agent_vectorization'
-VECTOR_ALL_DIR = '../output/all_agents_vectorization'
+VECTOR_DIR = '../output/vectorization'
 
 
 class Vectorizer:
@@ -107,48 +106,18 @@ def build_vectors_across_all_agents():
 
 
     ' delete old files '
-    for file in os.listdir(VECTOR_ALL_DIR):
-        os.remove(os.path.join(VECTOR_ALL_DIR, file))
+    for file in os.listdir(VECTOR_DIR):
+        os.remove(os.path.join(VECTOR_DIR, file))
 
-    pickle.dump(vectorizer.counter, open(os.path.join(VECTOR_ALL_DIR, "counter.dict"), "wb"))
-    pickle.dump(vectorizer.attr2idx, open(os.path.join(VECTOR_ALL_DIR, "attr2idx.dict"), "wb"))
+    pickle.dump(vectorizer.counter, open(os.path.join(VECTOR_DIR, "counter.dict"), "wb"))
+    pickle.dump(vectorizer.attr2idx, open(os.path.join(VECTOR_DIR, "attr2idx.dict"), "wb"))
     print("The counter and attr2idx are dumped")
 
     for agent_name in HEADER_BIDDING_KEYS:
         output_one_agent_vector_files(vectorizer,
-                                      VECTOR_ALL_DIR,
+                                      VECTOR_DIR,
                                       PARTITION_DIR,
                                       agent_name)
-
-def build_vectors_for_one_agent():
-    """
-    Only take one agent's features into account
-    i.e., an agents has a unique and narrow feature space.
-    """
-    ' delete old files '
-    for file in os.listdir(VECTOR_ONE_DIR):
-        os.remove(os.path.join(VECTOR_ONE_DIR, file))
-
-    for agent_name in HEADER_BIDDING_KEYS:
-        print("\n================================================")
-        print("Processing agent %s ..." % agent_name)
-        vectorizer = Vectorizer()
-        vectorizer.fit(PARTITION_DIR, r'%s_\d+_train\.p' % agent_name)
-        vectorizer.build_attr2idx()
-        print("\nCounter:")
-        pprint(vectorizer.counter)
-        print("\nAttr2Idx:")
-        pprint(vectorizer.attr2idx)
-        print("\n%d features\n" % vectorizer.num_features)
-
-        pickle.dump(vectorizer.counter, open(os.path.join(VECTOR_ONE_DIR, agent_name + '_' + "counter.dict"), "wb"))
-        pickle.dump(vectorizer.attr2idx, open(os.path.join(VECTOR_ONE_DIR, agent_name + '_' + "attr2idx.dict"), "wb"))
-
-        output_one_agent_vector_files(vectorizer,
-                                      VECTOR_ONE_DIR,
-                                      PARTITION_DIR,
-                                      agent_name)
-        print("Finish agent %s" % agent_name)
 
 
 def featstr_to_sparsemat(dir_path):
@@ -172,7 +141,5 @@ def featstr_to_sparsemat(dir_path):
                                    shape=(num_rows, num_features)).tocsr())
 
 if __name__ == "__main__":
-    # build_vectors_across_all_agents()
-    # build_vectors_for_one_agent()
-    featstr_to_sparsemat(VECTOR_ALL_DIR)
-    featstr_to_sparsemat(VECTOR_ONE_DIR)
+    build_vectors_across_all_agents()
+    featstr_to_sparsemat(VECTOR_DIR)
