@@ -12,8 +12,7 @@ from failure_rate_prediction_journal.data_entry_class.ImpressionEntry import HEA
 
 MODE = 'one_agent'
 INPUT_DIR = '../output'
-ALL_AGENTS_DIR = os.path.join(INPUT_DIR, 'all_agents_vectorization')
-ONE_AGENT_DIR = os.path.join(INPUT_DIR, 'all_agents_vectorization')
+VECTORS_DIR = os.path.join(INPUT_DIR, 'vectorization')
 OUTPUT_PKL_NAME = """prediction_result_gumbel_%s.pkl"""
 
 
@@ -226,9 +225,9 @@ if __name__ == "__main__":
         hb_data_test = HeaderBiddingData()
         for i, hb_agent_name in enumerate(HEADER_BIDDING_KEYS):
             print("HB AGENT (%d/%d) %s:" % (i + 1, len(HEADER_BIDDING_KEYS), hb_agent_name))
-            hb_data_train.add_data(*load_hb_data_all_agents(ALL_AGENTS_DIR, hb_agent_name, 'train'))
-            hb_data_val.add_data(*load_hb_data_all_agents(ALL_AGENTS_DIR, hb_agent_name, 'val'))
-            hb_data_test.add_data(*load_hb_data_all_agents(ALL_AGENTS_DIR, hb_agent_name, 'test'))
+            hb_data_train.add_data(*load_hb_data_all_agents(VECTORS_DIR, hb_agent_name, 'train'))
+            hb_data_val.add_data(*load_hb_data_all_agents(VECTORS_DIR, hb_agent_name, 'val'))
+            hb_data_test.add_data(*load_hb_data_all_agents(VECTORS_DIR, hb_agent_name, 'test'))
 
 
         print('Building model...')
@@ -254,9 +253,9 @@ if __name__ == "__main__":
             hb_data_test = HeaderBiddingData()
 
 
-            hb_data_train.add_data(*load_hb_data_one_agent(ONE_AGENT_DIR, hb_agent_name, 'train'))
-            hb_data_val.add_data(*load_hb_data_one_agent(ONE_AGENT_DIR, hb_agent_name, 'val'))
-            hb_data_test.add_data(*load_hb_data_one_agent(ONE_AGENT_DIR, hb_agent_name, 'test'))
+            hb_data_train.add_data(*load_hb_data_one_agent(VECTORS_DIR, hb_agent_name, 'train'))
+            hb_data_val.add_data(*load_hb_data_one_agent(VECTORS_DIR, hb_agent_name, 'val'))
+            hb_data_test.add_data(*load_hb_data_one_agent(VECTORS_DIR, hb_agent_name, 'test'))
 
             print('Building model...')
             model = HBPredictionModel(batch_size=512,
