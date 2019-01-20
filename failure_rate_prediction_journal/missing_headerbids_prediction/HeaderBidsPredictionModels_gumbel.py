@@ -121,6 +121,7 @@ class HBPredictionModel:
             init.run()
 
             max_loss_val = None
+            current_bad_epochs = 0
             num_total_batches = int(np.ceil(train_data.num_instances() / self.batch_size))
             for epoch in range(1, self.num_epochs + 1):
                 sess.run(running_vars_initializer)
@@ -172,6 +173,7 @@ class HBPredictionModel:
 
                 # print(loss_val, max_loss_val)
                 if max_loss_val is None or loss_val < max_loss_val:
+                    current_bad_epochs = 0
                     print("!!! GET THE LOWEST VAL LOSS !!!")
                     max_loss_val = loss_val
 
@@ -190,8 +192,8 @@ class HBPredictionModel:
                     prediction_result.to_pickle(os.path.join(INPUT_DIR, OUTPUT_PKL_NAME % self.hb_agent_name))
 
                 elif early_stop:
-                    bad_epoch_tol -= 1
-                    if bad_epoch_tol == 0:
+                    current_bad_epochs += 1
+                    if current_bad_epochs == bad_epoch_tol:
                         break
 
 

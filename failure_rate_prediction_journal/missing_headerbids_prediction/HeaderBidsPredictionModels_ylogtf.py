@@ -38,7 +38,7 @@ class HBPredictionModel:
         return pairs_mulsum
 
 
-    def run_graph(self, train_data, val_data, test_data, early_stop=False, verbose=True):
+    def run_graph(self, train_data, val_data, test_data, early_stop=False, bad_epoch_tol=0, verbose=True):
         '''
 
         :param distribution:
@@ -111,6 +111,7 @@ class HBPredictionModel:
             init.run()
 
             max_loss_val = None
+            current_bad_epochs = 0
             num_total_batches = int(np.ceil(train_data.num_instances() / self.batch_size))
             for epoch in range(1, self.num_epochs + 1):
                 sess.run(running_vars_initializer)
@@ -162,6 +163,7 @@ class HBPredictionModel:
 
 
                 if max_loss_val is None or loss_val < max_loss_val:
+                    current_bad_epochs = 0
                     print("!!! GET THE LOWEST VAL LOSS !!!")
                     max_loss_val = loss_val
 
@@ -180,7 +182,9 @@ class HBPredictionModel:
                     prediction_result.to_pickle(
                         os.path.join(INPUT_DIR, OUTPUT_PKL_NAME % self.hb_agent_name))
                 elif early_stop:
-                    break
+                    current_bad_epochs += 1
+                    if current_bad_epochs == bad_epoch_tol:
+                        break
 
 
 
@@ -259,6 +263,7 @@ if __name__ == "__main__":
                             hb_data_val,
                             hb_data_test,
                             early_stop=True,
+                            bad_epoch_tol=3,
                             verbose=False
                             )
 
