@@ -44,7 +44,7 @@ class HBPredictionModel:
         z = (x - mu) / scale
         return z + tf.exp(-z)
 
-    def run_graph(self, train_data, val_data, test_data, early_stop=False, verbose=True):
+    def run_graph(self, train_data, val_data, test_data, early_stop=False, bad_epoch_tol=0, verbose=True):
         '''
 
         :param distribution:
@@ -190,7 +190,9 @@ class HBPredictionModel:
                     prediction_result.to_pickle(os.path.join(INPUT_DIR, OUTPUT_PKL_NAME % self.hb_agent_name))
 
                 elif early_stop:
-                    break
+                    bad_epoch_tol -= 1
+                    if bad_epoch_tol == 0:
+                        break
 
 
     def evaluate(self, next_batch, running_init, sess, updates, metrics):
@@ -271,6 +273,7 @@ if __name__ == "__main__":
                             hb_data_val,
                             hb_data_test,
                             early_stop=True,
+                            bad_epoch_tol=3,
                             verbose=False)
         y_pred = []
         y_true = []
