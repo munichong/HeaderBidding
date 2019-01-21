@@ -265,7 +265,7 @@ if __name__ == "__main__":
             model = HBPredictionModel(batch_size=512,
                                       num_epochs=50,
                                       k=20,
-                                      learning_rate=1e-4,
+                                      learning_rate=1e-3,
                                       lambda_linear=0.0,
                                       lambda_factorized=0.0,
                                       hb_agent=hb_agent_name)
