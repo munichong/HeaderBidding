@@ -256,7 +256,7 @@ if __name__ == "__main__":
                                       learning_rate=1e-4,
                                       lambda_linear=0.0,
                                       lambda_factorized=0.0,
-                                      hb_agent=MODE)
+                                      hb_agent=hb_agent_name)
 
             print('Start training...')
             model.run_graph(hb_data_train,
