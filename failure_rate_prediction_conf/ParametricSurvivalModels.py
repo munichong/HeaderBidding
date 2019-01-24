@@ -59,6 +59,7 @@ class ParametricSurvival:
         scale = linear_term
 
         embeddings_factorized = None
+        filtered_embeddings_factorized = None
         if self.k > 0:
             # shape: (batch_size, max_nonzero_len, k)
             embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=1e-5))
@@ -168,16 +169,21 @@ class ParametricSurvival:
 
 
         # L2 regularized sum of squares loss function over the embeddings
+        '''
         l2_norm = tf.constant(self.lambda_linear) * tf.pow(embeddings_linear, 2)
         if embeddings_factorized is not None:
             l2_norm += tf.reduce_sum(tf.pow(embeddings_factorized, 2), axis=-1)
         sum_l2_norm = tf.constant(self.lambda_factorized) * tf.reduce_sum(l2_norm)
+        '''
+        l2_norm = self.lambda_linear * tf.nn.l2_loss(filtered_embeddings_linear)
+        if embeddings_factorized is not None:
+            l2_norm += self.lambda_factorized * tf.nn.l2_loss(filtered_embeddings_factorized)
 
 
         loss_mean = batch_loss + \
                     tf.constant(self.lambda_hb_adxwon) * mean_hb_reg_adxwon + \
                     tf.constant(self.lambda_hb_adxlose) * mean_hb_reg_adxlose + \
-                    sum_l2_norm
+                    l2_norm
         # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
 
         ### gradient clipping
@@ -343,10 +349,10 @@ if __name__ == "__main__":
         num_epochs=10,
         k=80,
         learning_rate=1e-3,
-        lambda_linear=1e-7,
-        lambda_factorized=1e-7,
-        lambda_hb_adxwon=1e-4,
-        lambda_hb_adxlose=1e-4
+        lambda_linear=0.0,
+        lambda_factorized=0.0,
+        lambda_hb_adxwon=0.0,
+        lambda_hb_adxlose=0.0
     )
 
     print('Start training...')
