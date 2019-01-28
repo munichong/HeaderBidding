@@ -62,6 +62,7 @@ class HBPredictionModel:
         scale = self.linear_function(filtered_embeddings_linear, intercept)
 
         embeddings_factorized = None
+        filtered_embeddings_factorized = None
         if self.k > 0:
             # shape: (batch_size, max_nonzero_len, k)
             embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=1e-5))
@@ -81,22 +82,19 @@ class HBPredictionModel:
 
 
         # L2 regularized sum of squares loss function over the embeddings
-        l2_norm = tf.constant(self.lambda_linear) * tf.pow(embeddings_linear, 2)
+        l2_norm = self.lambda_linear * tf.nn.l2_loss(filtered_embeddings_linear)
         if embeddings_factorized is not None:
-            l2_norm += tf.reduce_sum(tf.pow(embeddings_factorized, 2), axis=-1)
-        sum_l2_norm = tf.constant(self.lambda_factorized) * tf.reduce_sum(l2_norm)
+            l2_norm += self.lambda_factorized * tf.nn.l2_loss(filtered_embeddings_factorized)
 
+        loss_mean = batch_loss +l2_norm
 
-        loss_mean = batch_loss \
-                    # + sum_l2_norm
-
-        # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
+        training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
 
         ### gradient clipping
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-        gradients, variables = zip(*optimizer.compute_gradients(loss_mean))
-        gradients_clipped, _ = tf.clip_by_global_norm(gradients, 5.0)
-        training_op = optimizer.apply_gradients(zip(gradients_clipped, variables))
+        # optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        # gradients, variables = zip(*optimizer.compute_gradients(loss_mean))
+        # gradients_clipped, _ = tf.clip_by_global_norm(gradients, 5.0)
+        # training_op = optimizer.apply_gradients(zip(gradients_clipped, variables))
 
 
         # Isolate the variables stored behind the scenes by the metric operation
