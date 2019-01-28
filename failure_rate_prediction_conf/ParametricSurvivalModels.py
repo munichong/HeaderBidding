@@ -1,11 +1,15 @@
 import numpy as np, pickle, csv
 
 import tensorflow as tf
-from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
+from sklearn.metrics import log_loss, accuracy_score
 from failure_rate_prediction_conf.DataReader import SurvivalData
 from failure_rate_prediction_conf import Distributions
 from failure_rate_prediction_conf.EvaluationMetrics import c_index
 from time import time as nowtime
+
+
+ONLY_FREQ_TRAIN = False
+ONLY_FREQ_TEST = True
 
 class ParametricSurvival:
 
@@ -213,7 +217,7 @@ class ParametricSurvival:
                 num_batch = 0
                 start = nowtime()
                 for time_batch, event_batch, featidx_batch, featval_batch, minhbs_natch, maxhbs_batch, max_nz_len \
-                        in train_data.make_sparse_batch(self.batch_size):
+                        in train_data.make_sparse_batch(self.batch_size, only_freq=ONLY_FREQ_TRAIN):
 
                     num_batch += 1
 
@@ -252,7 +256,7 @@ class ParametricSurvival:
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
                 print('*** On Training Set:')
-                (loss_train, acc_train), _, _, _ = self.evaluate(train_data.make_sparse_batch(),
+                (loss_train, acc_train), _, _, _ = self.evaluate(train_data.make_sparse_batch(only_freq=ONLY_FREQ_TEST),
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
                                                                  sample_weights)
@@ -260,7 +264,7 @@ class ParametricSurvival:
 
                 # evaluation on validation data
                 print('*** On Validation Set:')
-                (loss_val, acc_val), not_survival_val, events_val, times_val = self.evaluate(val_data.make_sparse_batch(),
+                (loss_val, acc_val), not_survival_val, events_val, times_val = self.evaluate(val_data.make_sparse_batch(only_freq=ONLY_FREQ_TEST),
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
@@ -276,7 +280,7 @@ class ParametricSurvival:
                     # evaluation on test data
                     print('*** On Test Set:')
                     (loss_test, acc_test), not_survival_test, events_test, times_test = self.evaluate(
-                        test_data.make_sparse_batch(),
+                        test_data.make_sparse_batch(only_freq=ONLY_FREQ_TEST),
                         running_vars_initializer, sess,
                         eval_nodes_update, eval_nodes_metric,
                         sample_weights)
@@ -346,7 +350,7 @@ if __name__ == "__main__":
     model = ParametricSurvival(
         distribution=Distributions.WeibullDistribution(),
         batch_size=2048,
-        num_epochs=10,
+        num_epochs=20,
         k=80,
         learning_rate=1e-3,
         lambda_linear=0.0,

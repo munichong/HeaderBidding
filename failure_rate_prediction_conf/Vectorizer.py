@@ -3,7 +3,7 @@ from pymongo import MongoClient
 from pprint import pprint
 from failure_rate_prediction_conf.data_entry_class.NetworkBackfillImpressionEntry import NetworkBackfillImpressionEntry
 from failure_rate_prediction_conf.data_entry_class.NetworkImpressionEntry import NetworkImpressionEntry
-from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
+from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS, MIN_OCCURRENCE, MIN_OCCURRENCE_SYMBOL
 from collections import defaultdict, Counter
 
 
@@ -14,8 +14,6 @@ FEATURE_FIELDS = ['URIs_pageno', 'NaturalIDs', 'RefererURL', 'UserId',
                   'RequestLanguage', 'Country', 'Region', 'Metro', 'City',
                   'RequestedAdUnitSizes', 'AdPosition',
                   'CustomTargeting', ]
-MIN_OCCURRENCE = 5
-MIN_OCCURRENCE_SYMBOL = '<RARE>'
 
 class Vectorizer:
     def __init__(self):
