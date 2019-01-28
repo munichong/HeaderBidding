@@ -9,7 +9,7 @@ from time import time as nowtime
 
 
 ONLY_FREQ_TRAIN = False
-ONLY_FREQ_TEST = True
+ONLY_FREQ_TEST = False
 
 class ParametricSurvival:
 
