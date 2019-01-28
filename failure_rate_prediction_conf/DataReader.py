@@ -3,22 +3,64 @@ from keras.preprocessing.sequence import pad_sequences
 import numpy as np
 from collections import Counter
 from sklearn.utils import shuffle
-from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import MIN_OCCURRENCE_SYMBOL
+from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import MIN_OCCURRENCE_SYMBOL, MIN_OCCURRENCE
 
 
 class SurvivalData:
 
-    def __init__(self, times, events, sparse_features, sparse_headerbids):
+    def __init__(self, times, events, sparse_features, sparse_headerbids, min_occurrence=MIN_OCCURRENCE):
         self.times, self.events, self.sparse_features, self.sparse_headerbids = \
             times, events, sparse_features.tocsr(), sparse_headerbids.tocsr()
         self.num_instances = len(self.times)
         self.max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]  # 94
         self.load_rares_index()
 
+        self.infreq_user_indice, self.infreq_page_indice = np.array([]), np.array([])
+        if min_occurrence > MIN_OCCURRENCE:
+            self.infreq_user_indice, self.infreq_page_indice = self.load_addtl_infreq(min_occurrence)
+            self.merge_addtl_infreq()
+
+
     def load_rares_index(self):
         attr2idx = pickle.load(open('output/attr2idx.dict', 'rb'))
         self.rare_user_index = attr2idx['UserId'][MIN_OCCURRENCE_SYMBOL]
         self.rare_page_index = attr2idx['NaturalIDs'][MIN_OCCURRENCE_SYMBOL]
+
+    def load_addtl_infreq(self, min_occur):
+        """
+        Beside those users and pages whose occurrences are less than MIN_OCCURRENCE,
+        we also merge those whose occurrences are less than min_occur (if min_occur > MIN_OCCURRENCE)
+
+        :param min_occur:
+        :return:
+        """
+        attr2idx = pickle.load(open('output/attr2idx.dict', 'rb'))
+        counter = pickle.load(open('output/counter.dict', 'rb'))
+
+        return np.array([attr2idx['UserId'][k]
+                         for k, v in counter['UserId'].items()
+                         if v < min_occur]),\
+              np.array([attr2idx['NaturalIDs'][k]
+                        for k, v in counter['NaturalIDs'].items()
+                        if v < min_occur])
+
+    def merge_addtl_infreq(self):
+        if len(self.infreq_user_indice) > 0 or len(self.infreq_page_indice) > 0:
+            infreq_user_mask = np.any(self.sparse_features[:, self.infreq_user_indice].toarray().astype(bool), axis=1)
+            infreq_user_bin = infreq_user_mask.astype(float)
+            infreq_page_mask = np.any(self.sparse_features[:, self.infreq_page_indice].toarray().astype(bool), axis=1)
+            infreq_page_bin = infreq_page_mask.astype(float)
+
+            # add 1 on the rare_user_index and rarw_page_index for the rows that have addtl infreq users or pages.
+            # zero all addtl infreq users and pages
+            self.sparse_features = self.sparse_features.tolil()
+            self.sparse_features[:, self.rare_user_index] += np.expand_dims(infreq_user_bin, axis=1)
+            self.sparse_features[:, self.rare_page_index] += np.expand_dims(infreq_page_bin, axis=1)
+            self.sparse_features[:, self.infreq_user_indice] = np.zeros(self.sparse_features[:, self.infreq_user_indice].shape)
+            self.sparse_features[:, self.infreq_page_indice] = np.zeros(self.sparse_features[:, self.infreq_page_indice].shape)
+            self.sparse_features = self.sparse_features.tocsr()
+
+
 
     def get_sparse_feat_vec_batch(self, batch_size=100):
         '''
@@ -60,7 +102,6 @@ class SurvivalData:
                 self.times[freq_both_mask], self.events[freq_both_mask], \
                 self.sparse_features[freq_both_mask], self.sparse_headerbids[freq_both_mask]
             assert self.times.shape[0] == self.events.shape[0] == self.sparse_features.shape[0] == self.sparse_headerbids.shape[0]
-
 
         start_index = 0
         while start_index < self.num_instances:

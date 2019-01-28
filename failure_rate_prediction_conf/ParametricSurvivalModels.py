@@ -361,7 +361,7 @@ if __name__ == "__main__":
 
     print('Start training...')
     model.run_graph(num_features,
-                    SurvivalData(*pickle.load(open('output/TRAIN_SET.p', 'rb'))),
-                    SurvivalData(*pickle.load(open('output/VAL_SET.p', 'rb'))),
-                    SurvivalData(*pickle.load(open('output/TEST_SET.p', 'rb'))),
+                    SurvivalData(*pickle.load(open('output/TRAIN_SET.p', 'rb')), min_occurrence=10),
+                    SurvivalData(*pickle.load(open('output/VAL_SET.p', 'rb')), min_occurrence=10),
+                    SurvivalData(*pickle.load(open('output/TEST_SET.p', 'rb')), min_occurrence=10),
                     sample_weights='time')
