@@ -3,6 +3,7 @@ from keras.preprocessing.sequence import pad_sequences
 import numpy as np
 from collections import Counter
 from sklearn.utils import shuffle
+from scipy.sparse import csr_matrix
 from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import MIN_OCCURRENCE_SYMBOL, MIN_OCCURRENCE
 
 
@@ -15,16 +16,15 @@ class SurvivalData:
         self.max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]  # 94
         self.load_rares_index()
 
-        self.infreq_user_indice, self.infreq_page_indice = np.array([]), np.array([])
+        self.infreq_user_col_indices, self.infreq_page_col_indices = np.array([]), np.array([])
         if min_occurrence > MIN_OCCURRENCE:
-            self.infreq_user_indice, self.infreq_page_indice = self.load_addtl_infreq(min_occurrence)
-            self.merge_addtl_infreq()
+            self.infreq_user_col_indices, self.infreq_page_col_indices = self.load_addtl_infreq(min_occurrence)
 
 
     def load_rares_index(self):
         attr2idx = pickle.load(open('output/attr2idx.dict', 'rb'))
-        self.rare_user_index = attr2idx['UserId'][MIN_OCCURRENCE_SYMBOL]
-        self.rare_page_index = attr2idx['NaturalIDs'][MIN_OCCURRENCE_SYMBOL]
+        self.rare_user_col_index = attr2idx['UserId'][MIN_OCCURRENCE_SYMBOL]
+        self.rare_page_col_index = attr2idx['NaturalIDs'][MIN_OCCURRENCE_SYMBOL]
 
     def load_addtl_infreq(self, min_occur):
         """
@@ -37,30 +37,54 @@ class SurvivalData:
         attr2idx = pickle.load(open('output/attr2idx.dict', 'rb'))
         counter = pickle.load(open('output/counter.dict', 'rb'))
 
-        return np.array([attr2idx['UserId'][k]
-                         for k, v in counter['UserId'].items()
-                         if v < min_occur]),\
-              np.array([attr2idx['NaturalIDs'][k]
-                        for k, v in counter['NaturalIDs'].items()
-                        if v < min_occur])
+        infreq_user_col_indices = np.array([attr2idx['UserId'][k]
+                                           for k, v in counter['UserId'].items()
+                                           if k in attr2idx['UserId'] and v < min_occur])
+        infreq_page_col_indices = np.array([attr2idx['NaturalIDs'][k]
+                                           for k, v in counter['NaturalIDs'].items()
+                                           if k in attr2idx['NaturalIDs'] and v < min_occur])
+        print("%d/%d users are additionally merged due to infrequency"
+              % (len(infreq_user_col_indices), len(counter['UserId'])))
+        print("%d/%d pages are additionally merged due to infrequency"
+              % (len(infreq_page_col_indices), len(counter['NaturalIDs'])))
+        return infreq_user_col_indices, infreq_page_col_indices
 
-    def merge_addtl_infreq(self):
-        if len(self.infreq_user_indice) > 0 or len(self.infreq_page_indice) > 0:
-            infreq_user_mask = np.any(self.sparse_features[:, self.infreq_user_indice].toarray().astype(bool), axis=1)
-            infreq_user_bin = infreq_user_mask.astype(float)
-            infreq_page_mask = np.any(self.sparse_features[:, self.infreq_page_indice].toarray().astype(bool), axis=1)
-            infreq_page_bin = infreq_page_mask.astype(float)
+    def merge_addtl_infreq(self, sparse_features):
+        if len(self.infreq_user_col_indices) > 0 or len(self.infreq_page_col_indices) > 0:
+            infreq_user_row_mask = np.any(sparse_features[:, self.infreq_user_col_indices].toarray().astype(bool), axis=1)
+            infreq_user_row_indices = np.where(infreq_user_row_mask)[0]
+            infreq_page_row_mask = np.any(sparse_features[:, self.infreq_page_col_indices].toarray().astype(bool), axis=1)
+            infreq_page_row_indices = np.where(infreq_page_row_mask)[0]
 
             # add 1 on the rare_user_index and rarw_page_index for the rows that have addtl infreq users or pages.
+            sparse_features += self._get_rare_index_mask(sparse_features.shape,
+                                                         infreq_user_row_indices,
+                                                         self.rare_user_col_index)
+            sparse_features += self._get_rare_index_mask(sparse_features.shape,
+                                                         infreq_page_row_indices,
+                                                         self.rare_page_col_index)
+
             # zero all addtl infreq users and pages
-            self.sparse_features = self.sparse_features.tolil()
-            self.sparse_features[:, self.rare_user_index] += np.expand_dims(infreq_user_bin, axis=1)
-            self.sparse_features[:, self.rare_page_index] += np.expand_dims(infreq_page_bin, axis=1)
-            self.sparse_features[:, self.infreq_user_indice] = np.zeros(self.sparse_features[:, self.infreq_user_indice].shape)
-            self.sparse_features[:, self.infreq_page_indice] = np.zeros(self.sparse_features[:, self.infreq_page_indice].shape)
-            self.sparse_features = self.sparse_features.tocsr()
+            # sparse_features -= self._get_infreq_index_mask(sparse_features.shape,
+            #                                                infreq_user_row_indices,
+            #                                                self.infreq_user_col_indices)
+            # sparse_features -= self._get_infreq_index_mask(sparse_features.shape,
+            #                                                infreq_page_row_indices,
+            #                                                self.infreq_page_col_indices)
+            return sparse_features
 
+    def _get_rare_index_mask(self, shape, infreq_row_indices, rare_col_index):
+        row = np.array(infreq_row_indices)
+        col = np.array([rare_col_index] * len(infreq_row_indices))
+        data = np.ones(len(infreq_row_indices))
+        return csr_matrix((data, (row, col)), shape=shape, dtype=float)
 
+    def _get_infreq_index_mask(self, shape, infreq_row_indices, infreq_col_indices):
+        row = np.array(infreq_row_indices)
+        col = np.array(infreq_col_indices)
+        print(len(row), len(col))
+        data = np.ones(len(infreq_row_indices))
+        return csr_matrix((data, (row, col)), shape=shape, dtype=float)
 
     def get_sparse_feat_vec_batch(self, batch_size=100):
         '''
@@ -95,8 +119,8 @@ class SurvivalData:
         '''
 
         if only_freq:
-            freq_user_mask = ~np.ravel(self.sparse_features[:, self.rare_user_index].toarray()).astype(bool)
-            freq_page_mask = ~np.ravel(self.sparse_features[:, self.rare_page_index].toarray()).astype(bool)
+            freq_user_mask = ~np.ravel(self.sparse_features[:, self.rare_user_col_index].toarray()).astype(bool)
+            freq_page_mask = ~np.ravel(self.sparse_features[:, self.rare_page_col_index].toarray()).astype(bool)
             freq_both_mask = freq_user_mask & freq_page_mask
             self.times, self.events, self.sparse_features, self.sparse_headerbids = \
                 self.times[freq_both_mask], self.events[freq_both_mask], \
@@ -106,9 +130,14 @@ class SurvivalData:
         start_index = 0
         while start_index < self.num_instances:
             batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :]
-            # padding
+            batch_feat_mat = self.merge_addtl_infreq(batch_feat_mat)
+
             feat_indices_batch = np.split(batch_feat_mat.indices, batch_feat_mat.indptr)[1:-1]
+            infreq_col_set = set(self.infreq_user_col_indices)| set(self.infreq_page_col_indices)
+            feat_indices_batch = list(map(np.array, (list(filter(lambda i: i not in infreq_col_set, indices_arr)) for indices_arr in feat_indices_batch)))
             feat_values_batch = np.split(batch_feat_mat.data, batch_feat_mat.indptr)[1:-1]
+
+            # padding
             feat_indices_batch = pad_sequences(feat_indices_batch, maxlen=self.max_nonzero_len, padding='post', value=0)
             feat_values_batch = pad_sequences(feat_values_batch, maxlen=self.max_nonzero_len, padding='post', value=0.0, dtype='float32')
 
@@ -148,7 +177,7 @@ class SurvivalData:
 
 if __name__ == "__main__":
     times, events, sparse_features, sparse_headerbids = pickle.load(open('output/TRAIN_SET.p', 'rb'))
-    s = SurvivalData(times, events, sparse_features, sparse_headerbids)
+    s = SurvivalData(times, events, sparse_features, sparse_headerbids, min_occurrence=10)
 
     for t, e, f_ind, f_val, h_ind, h_val, max_nonzero_len in s.make_sparse_batch(100):
         print(t)
