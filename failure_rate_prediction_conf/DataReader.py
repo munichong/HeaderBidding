@@ -12,7 +12,7 @@ class SurvivalData:
     def __init__(self, times, events, sparse_features, sparse_headerbids, min_occurrence=MIN_OCCURRENCE):
         self.times, self.events, self.sparse_features, self.sparse_headerbids = \
             times, events, sparse_features.tocsr(), sparse_headerbids.tocsr()
-        self.sparse_features_csc = sparse_features.tocsc()
+
         self.num_instances = len(self.times)
         self.max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]  # 94
         self.load_rares_index()
