@@ -20,6 +20,7 @@ class SurvivalData:
         self.infreq_user_col_indices, self.infreq_page_col_indices = np.array([]), np.array([])
         if min_occurrence > MIN_OCCURRENCE:
             self.infreq_user_col_indices, self.infreq_page_col_indices = self.load_addtl_infreq(min_occurrence)
+            self.sparse_features = self.merge_addtl_infreq(self.sparse_features)
 
 
     def load_rares_index(self):
@@ -52,18 +53,18 @@ class SurvivalData:
 
     def merge_addtl_infreq(self, sparse_features):
         if len(self.infreq_user_col_indices) > 0 or len(self.infreq_page_col_indices) > 0:
-            infreq_user_row_mask = np.any(sparse_features[:, self.infreq_user_col_indices].toarray().astype(bool), axis=1)
+            infreq_user_row_mask = np.nonzero(sparse_features[:, self.infreq_user_col_indices])[0]
             infreq_user_row_indices = np.where(infreq_user_row_mask)[0]
-            infreq_page_row_mask = np.any(sparse_features[:, self.infreq_page_col_indices].toarray().astype(bool), axis=1)
+            infreq_page_row_mask = np.nonzero(sparse_features[:, self.infreq_page_col_indices])[0]
             infreq_page_row_indices = np.where(infreq_page_row_mask)[0]
 
             # add 1 on the rare_user_index and rarw_page_index for the rows that have addtl infreq users or pages.
-            #sparse_features += self._get_rare_index_mask(sparse_features.shape,
-            #                                             infreq_user_row_indices,
-            #                                             self.rare_user_col_index)
-            #sparse_features += self._get_rare_index_mask(sparse_features.shape,
-            #                                             infreq_page_row_indices,
-            #                                             self.rare_page_col_index)
+            sparse_features += self._get_rare_index_mask(sparse_features.shape,
+                                                         infreq_user_row_indices,
+                                                         self.rare_user_col_index)
+            sparse_features += self._get_rare_index_mask(sparse_features.shape,
+                                                         infreq_page_row_indices,
+                                                         self.rare_page_col_index)
 
             # zero all addtl infreq users and pages
             # sparse_features -= self._get_infreq_index_mask(sparse_features.shape,
@@ -132,7 +133,7 @@ class SurvivalData:
         start_index = 0
         while start_index < self.num_instances:
             batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :]
-            batch_feat_mat = self.merge_addtl_infreq(batch_feat_mat)
+            # batch_feat_mat = self.merge_addtl_infreq(batch_feat_mat)
 
             feat_indices_batch = np.split(batch_feat_mat.indices, batch_feat_mat.indptr)[1:-1]
             feat_values_batch = np.split(batch_feat_mat.data, batch_feat_mat.indptr)[1:-1]
@@ -142,11 +143,11 @@ class SurvivalData:
             #                                for indices_arr in feat_indices_batch)
             #                               )
             #                           )
-            # filter_mask = [np.array(list(map(lambda i: i not in infreq_col_set, indices_arr))).astype(bool) for indices_arr in feat_indices_batch]
+            filter_mask = [np.array(list(map(lambda i: i not in infreq_col_set, indices_arr))).astype(bool) for indices_arr in feat_indices_batch]
             # print([len(f) for f in feat_indices_batch])
             # print([len(f) for f in feat_values_batch])
-            # feat_indices_batch = [feat_indices_batch[i][filter_mask[i]] for i in range(len(feat_indices_batch))]
-            # feat_values_batch = [feat_values_batch[i][filter_mask[i]] for i in range(len(feat_values_batch))]
+            feat_indices_batch = [feat_indices_batch[i][filter_mask[i]] for i in range(len(feat_indices_batch))]
+            feat_values_batch = [feat_values_batch[i][filter_mask[i]] for i in range(len(feat_values_batch))]
             # print([len(f) for f in feat_indices_batch])
             # print([len(f) for f in feat_values_batch])
 
