@@ -4,12 +4,12 @@ import numpy as np
 from collections import Counter
 from sklearn.utils import shuffle
 from scipy.sparse import csr_matrix
-from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import MIN_OCCURRENCE_SYMBOL, MIN_OCCURRENCE
+from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import MIN_OCCURRENCE_SYMBOL, MIN_OCCURRENCE as ORIGIN_MIN_OCCURRENCE
 
 
 class SurvivalData:
 
-    def __init__(self, times, events, sparse_features, sparse_headerbids, min_occurrence=MIN_OCCURRENCE):
+    def __init__(self, times, events, sparse_features, sparse_headerbids, min_occurrence=ORIGIN_MIN_OCCURRENCE):
         self.times, self.events, self.sparse_features, self.sparse_headerbids = \
             times, events, sparse_features.tocsr(), sparse_headerbids.tocsr()
 
@@ -18,7 +18,7 @@ class SurvivalData:
         self.load_rares_index()
 
         self.infreq_user_col_indices, self.infreq_page_col_indices = np.array([]), np.array([])
-        if min_occurrence > MIN_OCCURRENCE:
+        if min_occurrence > ORIGIN_MIN_OCCURRENCE:
             self.infreq_user_col_indices, self.infreq_page_col_indices = self.load_addtl_infreq(min_occurrence)
             self.sparse_features = self.merge_addtl_infreq(self.sparse_features)
 
@@ -41,14 +41,18 @@ class SurvivalData:
 
         infreq_user_col_indices = np.array([attr2idx['UserId'][k]
                                            for k, v in counter['UserId'].items()
-                                           if k in attr2idx['UserId'] and v < min_occur])
+                                           if k in attr2idx['UserId'] and v < min_occur
+                                            # ] + [attr2idx['UserId']['<RARE>']
+                                                 ])
         infreq_page_col_indices = np.array([attr2idx['NaturalIDs'][k]
                                            for k, v in counter['NaturalIDs'].items()
-                                           if k in attr2idx['NaturalIDs'] and v < min_occur])
+                                           if k in attr2idx['NaturalIDs'] and v < min_occur
+                                            # ] + [attr2idx['NaturalIDs']['<RARE>']
+                                                 ])
         print("%d/%d users are additionally merged due to infrequency"
-              % (len(infreq_user_col_indices), len(counter['UserId'])))
+              % (len(infreq_user_col_indices), len(attr2idx['UserId'])))
         print("%d/%d pages are additionally merged due to infrequency"
-              % (len(infreq_page_col_indices), len(counter['NaturalIDs'])))
+              % (len(infreq_page_col_indices), len(attr2idx['NaturalIDs'])))
         return infreq_user_col_indices, infreq_page_col_indices
 
     def merge_addtl_infreq(self, sparse_features):
@@ -58,7 +62,7 @@ class SurvivalData:
             infreq_page_row_mask = np.nonzero(sparse_features[:, self.infreq_page_col_indices])[0]
             infreq_page_row_indices = np.where(infreq_page_row_mask)[0]
 
-            # add 1 on the rare_user_index and rarw_page_index for the rows that have addtl infreq users or pages.
+            # add 1 on the rare_user_index and rare_page_index for the rows that have addtl infreq users or pages.
             sparse_features += self._get_rare_index_mask(sparse_features.shape,
                                                          infreq_user_row_indices,
                                                          self.rare_user_col_index)
@@ -81,12 +85,12 @@ class SurvivalData:
         data = np.ones(len(infreq_row_indices))
         return csr_matrix((data, (row, col)), shape=shape, dtype=float)
 
-    def _get_infreq_index_mask(self, shape, infreq_row_indices, infreq_col_indices):
-        row = np.array(infreq_row_indices)
-        col = np.array(infreq_col_indices)
-        print(len(row), len(col))
-        data = np.ones(len(infreq_row_indices))
-        return csr_matrix((data, (row, col)), shape=shape, dtype=float)
+    # def _get_infreq_index_mask(self, shape, infreq_row_indices, infreq_col_indices):
+    #     row = np.array(infreq_row_indices)
+    #     col = np.array(infreq_col_indices)
+    #     print(len(row), len(col))
+    #     data = np.ones(len(infreq_row_indices))
+    #     return csr_matrix((data, (row, col)), shape=shape, dtype=float)
 
     def get_sparse_feat_vec_batch(self, batch_size=100):
         '''
@@ -133,16 +137,11 @@ class SurvivalData:
         start_index = 0
         while start_index < self.num_instances:
             batch_feat_mat = self.sparse_features[start_index: start_index + batch_size, :]
-            # batch_feat_mat = self.merge_addtl_infreq(batch_feat_mat)
 
             feat_indices_batch = np.split(batch_feat_mat.indices, batch_feat_mat.indptr)[1:-1]
             feat_values_batch = np.split(batch_feat_mat.data, batch_feat_mat.indptr)[1:-1]
 
-            # feat_indices_batch = list(map(np.array,
-            #                               (list(filter(lambda i: i not in infreq_col_set, indices_arr))
-            #                                for indices_arr in feat_indices_batch)
-            #                               )
-            #                           )
+
             filter_mask = [np.array(list(map(lambda i: i not in infreq_col_set, indices_arr))).astype(bool) for indices_arr in feat_indices_batch]
             # print([len(f) for f in feat_indices_batch])
             # print([len(f) for f in feat_values_batch])
