@@ -11,6 +11,10 @@ from time import time as nowtime
 ONLY_FREQ_TRAIN = False
 ONLY_FREQ_TEST = False
 
+ONLY_HB_IMP = False
+
+MIN_OCCURRENCE = 5
+
 class ParametricSurvival:
 
     def __init__(self, distribution, batch_size, num_epochs, k, learning_rate=0.001,
@@ -292,7 +296,7 @@ class ParametricSurvival:
                     with open('output/all_predictions_factorized.csv', 'w', newline="\n") as outfile:
                         csv_writer = csv.writer(outfile)
                         csv_writer.writerow(('NOT_SURV_PROB', 'EVENTS', 'TIMES'))
-                        for p, e, t in zip(not_survival_val, events_val, times_val):
+                        for p, e, t in zip(not_survival_test, events_test, times_test):
                             csv_writer.writerow((p, e, t))
                     print('All predictions are outputted for error analysis')
 
@@ -361,7 +365,12 @@ if __name__ == "__main__":
 
     print('Start training...')
     model.run_graph(num_features,
-                    SurvivalData(*pickle.load(open('output/TRAIN_SET.p', 'rb')), min_occurrence=10),
-                    SurvivalData(*pickle.load(open('output/VAL_SET.p', 'rb')), min_occurrence=10),
-                    SurvivalData(*pickle.load(open('output/TEST_SET.p', 'rb')), min_occurrence=10),
+                    SurvivalData(*pickle.load(open('output/TRAIN_SET.p', 'rb')),
+                                 min_occurrence=MIN_OCCURRENCE),
+                    SurvivalData(*pickle.load(open('output/VAL_SET.p', 'rb')),
+                                 min_occurrence=MIN_OCCURRENCE,
+                                 only_hb_imp = ONLY_HB_IMP),
+                    SurvivalData(*pickle.load(open('output/TEST_SET.p', 'rb')),
+                                 min_occurrence=MIN_OCCURRENCE,
+                                 only_hb_imp=ONLY_HB_IMP),
                     sample_weights='time')

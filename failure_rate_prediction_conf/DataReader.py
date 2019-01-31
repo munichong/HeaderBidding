@@ -9,18 +9,30 @@ from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import MIN_OC
 
 class SurvivalData:
 
-    def __init__(self, times, events, sparse_features, sparse_headerbids, min_occurrence=ORIGIN_MIN_OCCURRENCE):
+    def __init__(self, times, events, sparse_features, sparse_headerbids,
+                 min_occurrence=ORIGIN_MIN_OCCURRENCE, only_hb_imp=False):
         self.times, self.events, self.sparse_features, self.sparse_headerbids = \
             times, events, sparse_features.tocsr(), sparse_headerbids.tocsr()
 
-        self.num_instances = len(self.times)
         self.max_nonzero_len = Counter(self.sparse_features.nonzero()[0]).most_common(1)[0][1]  # 94
         self.load_rares_index()
 
         self.infreq_user_col_indices, self.infreq_page_col_indices = np.array([]), np.array([])
         if min_occurrence > ORIGIN_MIN_OCCURRENCE:
+            print("Need to merge additional infreq users and pages")
             self.infreq_user_col_indices, self.infreq_page_col_indices = self.load_addtl_infreq(min_occurrence)
             self.sparse_features = self.merge_addtl_infreq(self.sparse_features)
+
+        if only_hb_imp:
+            num_rows_before_filtering = len(self.times)
+            print("Need to select impressions with hb")
+            hb_imp_rows = np.array(list(set(np.nonzero(self.sparse_headerbids)[0])))
+            self.times, self.events, self.sparse_features, self.sparse_headerbids = \
+            self.times[hb_imp_rows], self.events[hb_imp_rows], self.sparse_features[hb_imp_rows], self.sparse_headerbids[hb_imp_rows]
+            print("reduce from %d impressions to %d impressions" % (num_rows_before_filtering, len(self.times)))
+
+        self.num_instances = len(self.times)
+
 
 
     def load_rares_index(self):
@@ -191,7 +203,8 @@ class SurvivalData:
 
 if __name__ == "__main__":
     times, events, sparse_features, sparse_headerbids = pickle.load(open('output/TRAIN_SET.p', 'rb'))
-    s = SurvivalData(times, events, sparse_features, sparse_headerbids, min_occurrence=10)
+    s = SurvivalData(times, events, sparse_features, sparse_headerbids,
+                     min_occurrence=10, only_hb_imp=True)
 
     for t, e, f_ind, f_val, h_ind, h_val, max_nonzero_len in s.make_sparse_batch(2048):
         print(t)
