@@ -76,10 +76,7 @@ class ParametricSurvival:
             factorized_term = self.factorization_machines(filtered_embeddings_factorized)
             scale += factorized_term
 
-
         scale = tf.nn.softplus(scale)
-
-        # scale = tf.Variable(0.1)
 
         ''' 
         if event == 0, right-censoring
@@ -255,12 +252,12 @@ class ParametricSurvival:
 
 
                 # evaluation on training data
-                eval_nodes_update = [loss_update, acc_update, not_survival_proba]
+                eval_nodes_update = [loss_update, acc_update, not_survival_proba, scale, max_hbs]
                 eval_nodes_metric = [running_loss, running_acc]
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
                 print('*** On Training Set:')
-                (loss_train, acc_train), _, _, _ = self.evaluate(train_data.make_sparse_batch(only_freq=ONLY_FREQ_TEST),
+                (loss_train, acc_train), _, _, _, _, _ = self.evaluate(train_data.make_sparse_batch(only_freq=ONLY_FREQ_TEST),
                                                                  running_vars_initializer, sess,
                                                                  eval_nodes_update, eval_nodes_metric,
                                                                  sample_weights)
@@ -268,7 +265,7 @@ class ParametricSurvival:
 
                 # evaluation on validation data
                 print('*** On Validation Set:')
-                (loss_val, acc_val), not_survival_val, events_val, times_val = self.evaluate(val_data.make_sparse_batch(only_freq=ONLY_FREQ_TEST),
+                (loss_val, acc_val), not_survival_val, _, _, events_val, times_val = self.evaluate(val_data.make_sparse_batch(only_freq=ONLY_FREQ_TEST),
                                                            running_vars_initializer, sess,
                                                            eval_nodes_update, eval_nodes_metric,
                                                            sample_weights)
@@ -283,7 +280,7 @@ class ParametricSurvival:
 
                     # evaluation on test data
                     print('*** On Test Set:')
-                    (loss_test, acc_test), not_survival_test, events_test, times_test = self.evaluate(
+                    (loss_test, acc_test), not_survival_test, scale_test, max_hbs_test, events_test, times_test = self.evaluate(
                         test_data.make_sparse_batch(only_freq=ONLY_FREQ_TEST),
                         running_vars_initializer, sess,
                         eval_nodes_update, eval_nodes_metric,
@@ -295,9 +292,9 @@ class ParametricSurvival:
                     # Store prediction results
                     with open('output/all_predictions_factorized.csv', 'w', newline="\n") as outfile:
                         csv_writer = csv.writer(outfile)
-                        csv_writer.writerow(('NOT_SURV_PROB', 'EVENTS', 'TIMES'))
-                        for p, e, t in zip(not_survival_test, events_test, times_test):
-                            csv_writer.writerow((p, e, t))
+                        csv_writer.writerow(('NOT_SURV_PROB', 'EVENTS', 'MAX(RESERVE, REVENUE)', 'MAX_HB', 'SCALE'))
+                        for p, e, t, h, s in zip(not_survival_test, events_test, times_test, max_hbs_test, scale_test):
+                            csv_writer.writerow((p, e, t, h, s))
                     print('All predictions are outputted for error analysis')
 
                     # Store parameters
@@ -317,9 +314,11 @@ class ParametricSurvival:
         all_not_survival = []
         all_events = []
         all_times = []
+        all_scales = []
+        all_max_hbs = []
         sess.run(running_init)
         for time_batch, event_batch, featidx_batch, featval_batch, minhbs_natch, maxhbs_batch, max_nz_len in next_batch:
-            _, _, not_survival  = sess.run(updates, feed_dict={
+            _, _, not_survival, scale_batch, max_hbs_batch  = sess.run(updates, feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
                                              'min_headerbids:0': minhbs_natch,
@@ -329,6 +328,8 @@ class ParametricSurvival:
             all_not_survival.extend(not_survival)
             all_events.extend(event_batch)
             all_times.extend(time_batch)
+            all_scales.extend(scale_batch)
+            all_max_hbs.extend(max_hbs_batch)
 
         all_not_survival = np.array(all_not_survival, dtype=np.float64)
         all_not_survival_bin = np.where(all_not_survival>=0.5, 1.0, 0.0)
@@ -342,7 +343,7 @@ class ParametricSurvival:
                                                                                     sample_weight=all_times),
                                                                    accuracy_score(all_events, all_not_survival_bin,
                                                                                   sample_weight=all_times)))
-        return sess.run(metrics), all_not_survival, all_events, all_times
+        return sess.run(metrics), all_not_survival, all_scales, all_max_hbs, all_events, all_times
 
 
 
@@ -354,7 +355,7 @@ if __name__ == "__main__":
     model = ParametricSurvival(
         distribution=Distributions.WeibullDistribution(),
         batch_size=2048,
-        num_epochs=20,
+        num_epochs=10,
         k=80,
         learning_rate=1e-3,
         lambda_linear=0.0,
