@@ -18,10 +18,10 @@ class ExpectedRevenueMaximum:
 
     def run(self, infile, outfile):
         df = pd.read_csv(infile)
-        df[['optimal reserve price', 'expected revenue']] = df['SCALE'].apply(self.predict)
-        # for i, row in df.iterrows():
-        #     res = self.predict(row.loc['SCALE'])
-        #     print(row['NOT_SURV_PROB'], row['EVENTS'], row['TIMES'], row['SCALE'], res['optimal reserve price'], res['expected revenue'])
+        # df[['optimal reserve price', 'expected revenue']] = df['SCALE'].apply(self.predict)
+        for i, row in df.iterrows():
+            res = self.predict(row.loc['SCALE'])
+            print(row['NOT_SURV_PROB'], row['EVENTS'], row['MAX(RESERVE, REVENUE)'], row['SCALE'], res['optimal reserve price'], res['expected revenue'])
 
         df.to_csv(outfile)
 
