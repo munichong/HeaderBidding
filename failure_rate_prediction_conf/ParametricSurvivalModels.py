@@ -82,7 +82,10 @@ class ParametricSurvival:
         if event == 0, right-censoring
         if event == 1, left-censoring 
         '''
-        not_survival_proba = self.distribution.left_censoring(times, scale)  # the left area
+        shape = tf.Variable(0.2,
+                            trainable=True
+                            )
+        not_survival_proba = self.distribution.left_censoring(times, scale, shape)  # the left area
 
 
         not_survival_bin = tf.where(tf.greater_equal(not_survival_proba, 0.5),
@@ -150,8 +153,8 @@ class ParametricSurvival:
         regable_scale_adxwon = tf.dynamic_partition(scale, hb_adxwon_partitions, 2)[1]
         regable_scale_adxlose = tf.dynamic_partition(scale, hb_adxlose_partitions, 2)[1]
 
-        hb_adxwon_pred = self.distribution.left_censoring(regable_hb_adxwon, regable_scale_adxwon)
-        hb_adxlose_pred = self.distribution.left_censoring(regable_hb_adxlose, regable_scale_adxlose)
+        hb_adxwon_pred = self.distribution.left_censoring(regable_hb_adxwon, regable_scale_adxwon, shape)
+        hb_adxlose_pred = self.distribution.left_censoring(regable_hb_adxlose, regable_scale_adxlose, shape)
 
         hb_reg_adxwon, hb_reg_adxlose = None, None
         if not sample_weights:
@@ -222,8 +225,8 @@ class ParametricSurvival:
 
                     num_batch += 1
 
-                    _, loss_batch, _, event_batch, time_batch = sess.run([training_op, loss_mean,
-                                                                  acc_update, events, times],
+                    _, loss_batch, _, event_batch, time_batch, shape_batch = sess.run([training_op, loss_mean,
+                                                                  acc_update, events, times, shape],
                                                                    feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
@@ -241,8 +244,8 @@ class ParametricSurvival:
                     # print(mean_batch_loss_batch)
                     # print("event_batch")
                     # print(event_batch)
-                    # print('time_batch')
-                    # print(time_batch)
+                    # print('shape_batch')
+                    # print(shape_batch)
 
                     if epoch == 1:
                         print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
@@ -292,15 +295,16 @@ class ParametricSurvival:
                     # Store prediction results
                     with open('output/all_predictions_factorized.csv', 'w', newline="\n") as outfile:
                         csv_writer = csv.writer(outfile)
-                        csv_writer.writerow(('NOT_SURV_PROB', 'EVENTS', 'MAX(RESERVE, REVENUE)', 'MAX_HB', 'SCALE'))
-                        for p, e, t, h, s in zip(not_survival_test, events_test, times_test, max_hbs_test, scale_test):
-                            csv_writer.writerow((p, e, t, h, s))
+                        csv_writer.writerow(('NOT_SURV_PROB', 'EVENTS', 'MAX(RESERVE, REVENUE)', 'MAX_HB', 'SCALE', 'SHAPE'))
+                        sh = shape.eval()
+                        for p, e, t, h, sc in zip(not_survival_test, events_test, times_test, max_hbs_test, scale_test):
+                            csv_writer.writerow((p, e, t, h, sc, sh))
                     print('All predictions are outputted for error analysis')
 
                     # Store parameters
                     params = {'embeddings_linear': embeddings_linear.eval(),
                               'intercept': intercept.eval(),
-                              'shape': self.distribution.shape,
+                              'shape': shape.eval(),
                               'distribution_name': type(self.distribution).__name__}
                     if embeddings_factorized is not None:
                         params['embeddings_factorized'] = embeddings_factorized.eval(),
