@@ -4,12 +4,12 @@ import numpy as np
 from scipy.optimize import minimize
 
 root = 'I:/Desktop'
-infile = os.path.join(root, 'all_predictions_factorized_shape5.csv')
-outfile = os.path.join(root, 'all_predictions_factorized_shape5_predicted.csv')
+infile = os.path.join(root, 'all_predictions_factorized_shapetrain.csv')
+outfile = os.path.join(root, 'all_predictions_factorized_shapetrain_predicted.csv')
 
 class ExpectedRevenueMaximum:
     def neg_expected_revenue(self, x, row):
-        not_surv_prob = 1 - np.exp(-(x / row['SCALE']) ** row['SHAPE'])
+        not_surv_prob = 1 - np.exp(-1* row['SCALE'] * x ** row['SHAPE'])
         return -((1 - not_surv_prob) * x + not_surv_prob * row['MAX_HB'])
 
     def predict(self, row):
@@ -21,11 +21,11 @@ class ExpectedRevenueMaximum:
 
     def run(self, infile, outfile):
         df = pd.read_csv(infile)
-        df[['optimal reserve price', 'expected revenue']] = df.apply(self.predict, axis=1)
+        df[['expected revenue', 'optimal reserve price']] = df.apply(self.predict, axis=1)
         # for i, row in df.iterrows():
         #     res = self.predict(row)
-        #     print("%f\t%d\t%f\t%f\t%f\t%f\t%f" %
-        #           (row['NOT_SURV_PROB'], row['EVENTS'], row['MAX(RESERVE, REVENUE)'], row['SCALE'], row['SHAPE'],
+        #     print("%f\t%d\t%f\t%f\t%f\t%f\t%f\t%f" %
+        #           (row['NOT_SURV_PROB'], row['EVENTS'], row['MAX(RESERVE, REVENUE)'], row['MAX_HB'], row['SCALE'], row['SHAPE'],
         #            res['optimal reserve price'], res['expected revenue']))
 
         df.to_csv(outfile)
@@ -36,7 +36,8 @@ class SpecifyConfidence:
     CONFIDENCE = 0.3  # target survive prob
 
     def predict(self, row):
-        return ((-1 * np.log(1 - self.CONFIDENCE)) ** (1 / row['SHAPE'])) * row['SCALE']
+        return ((-1 * np.log(1 - self.CONFIDENCE)) / row['SCALE']) ** (1 / row['SHAPE'])
+        # return ((-1 * np.log(1 - self.CONFIDENCE)) ** (1 / row['SHAPE'])) * row['SCALE']
 
     def expected_revenue(self, row):
         not_surv_prob = 1 - self.CONFIDENCE
