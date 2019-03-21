@@ -103,6 +103,9 @@ class ParametricSurvival:
             batch_loss = tf.losses.log_loss(labels=events, predictions=not_survival_proba,
                                             reduction = tf.losses.Reduction.MEAN)
         elif sample_weights == 'time':
+            # class_weights = tf.where(tf.equal(events, 1),
+            #                             tf.ones(tf.shape(events)) * 100,
+            #                             tf.ones(tf.shape(events)))
             batch_loss = tf.losses.log_loss(labels=events, predictions=not_survival_proba, weights=times,
                                             reduction = tf.losses.Reduction.MEAN)
         running_loss, loss_update = tf.metrics.mean(batch_loss)
