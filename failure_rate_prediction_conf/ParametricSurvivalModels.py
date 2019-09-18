@@ -110,93 +110,16 @@ class ParametricSurvival:
                                             reduction = tf.losses.Reduction.MEAN)
         running_loss, loss_update = tf.metrics.mean(batch_loss)
 
-
-        # Header Bidding Regularization
-        hb_adxwon_partitions = tf.cast(
-            tf.logical_and(tf.equal(events, 0),  # adx won
-                           tf.logical_and(
-                               tf.not_equal(0.0, max_hbs),  # the max_hb is not missing
-                               tf.less(times, max_hbs)
-                               # tf.less(times, min_hbs),
-                               # tf.logical_and(
-                               #                                #     # tf.less(times, max_hbs),  # the max hb > the revenue
-                               #                                #                # tf.less(max_hbs - time, 1.0)  # remove the outliers
-                               #                                #                tf.less(times, min_hbs),
-                               #                                #                tf.less((max_hbs - times) / times, 0.01)
-                               #                                #                # tf.logical_and(
-                               #                                #                #     tf.less((max_hbs - times) / times, 0.01),
-                               #                                #                #     tf.less(times, 10.0)
-                               #                                #                # )
-                               #                                #                )
-                           )
-                           ), tf.int32)
-        hb_adxlose_partitions = tf.cast(
-            tf.logical_and(tf.equal(events, 1),  # adx lose
-                           tf.logical_and(
-                               tf.not_equal(0.0, min_hbs),  # the min_hb is not missing
-                               tf.less(min_hbs, times)  # the min hb < the floor
-                               # tf.less(max_hbs, times),
-                               # tf.logical_and(
-                               #                tf.less(min_hbs, times),
-                               #                # tf.less(max_hbs - time, 1.0)  # remove the outliers
-                               #                tf.less(0.9, (times - min_hbs) / times)
-                               #                # tf.logical_and(
-                               #                #     tf.less(0.1, (times - min_hbs) / times),
-                               #                #     tf.less(times, 10.0)
-                               #                # )
-                               #                )
-                           )
-                           ), tf.int32)
-
-        # Using boolean_mask instead of dynamic_partition leads to:
-        # "UserWarning: Converting sparse IndexedSlices to a dense Tensor of unknown shape. This may consume a large amount of memory."
-        # https://stackoverflow.com/questions/44380727/get-userwarning-while-i-use-tf-boolean-mask?noredirect=1&lq=1
-        regable_hb_adxwon = tf.dynamic_partition(max_hbs, hb_adxwon_partitions, 2)[1]
-        regable_hb_adxlose = tf.dynamic_partition(min_hbs, hb_adxlose_partitions, 2)[1]
-        regable_scale_adxwon = tf.dynamic_partition(scale, hb_adxwon_partitions, 2)[1]
-        regable_scale_adxlose = tf.dynamic_partition(scale, hb_adxlose_partitions, 2)[1]
-
-        hb_adxwon_pred = self.distribution.left_censoring(regable_hb_adxwon, regable_scale_adxwon, shape)
-        hb_adxlose_pred = self.distribution.left_censoring(regable_hb_adxlose, regable_scale_adxlose, shape)
-
-        hb_reg_adxwon, hb_reg_adxlose = None, None
-        if not sample_weights:
-        # if True:
-            hb_reg_adxwon = tf.losses.log_loss(labels=tf.zeros(tf.shape(hb_adxwon_pred)),
-                                               predictions=hb_adxwon_pred)
-            hb_reg_adxlose = tf.losses.log_loss(labels=tf.zeros(tf.shape(hb_adxlose_pred)),
-                                                predictions=hb_adxlose_pred)
-        elif sample_weights == 'time':
-            regable_time_adxwon = tf.dynamic_partition(times, hb_adxwon_partitions, 2)[1]
-            regable_time_adxlose = tf.dynamic_partition(times, hb_adxlose_partitions, 2)[1]
-            hb_reg_adxwon = tf.losses.log_loss(labels=tf.ones(tf.shape(hb_adxwon_pred)),
-                                               predictions=hb_adxwon_pred,
-                                               weights=1.0 / regable_time_adxwon)
-            hb_reg_adxlose = tf.losses.log_loss(labels=tf.zeros(tf.shape(hb_adxlose_pred)),
-                                                predictions=hb_adxlose_pred,
-                                                weights=1.0 / regable_time_adxlose)
-        mean_hb_reg_adxwon = tf.reduce_mean(hb_reg_adxwon)
-        mean_hb_reg_adxlose = tf.reduce_mean(hb_reg_adxlose)
-
-
-        # L2 regularized sum of squares loss function over the embeddings
-        '''
-        l2_norm = tf.constant(self.lambda_linear) * tf.pow(embeddings_linear, 2)
-        if embeddings_factorized is not None:
-            l2_norm += tf.reduce_sum(tf.pow(embeddings_factorized, 2), axis=-1)
-        sum_l2_norm = tf.constant(self.lambda_factorized) * tf.reduce_sum(l2_norm)
-        '''
+        ''' ============= L2 regularized sum of squares loss function over the embeddings ============= '''
         l2_norm = self.lambda_linear * tf.nn.l2_loss(filtered_embeddings_linear)
         if embeddings_factorized is not None:
             l2_norm += self.lambda_factorized * tf.nn.l2_loss(filtered_embeddings_factorized)
 
+        loss_mean = batch_loss + l2_norm
+                    # tf.constant(self.lambda_hb_adxwon) * mean_hb_reg_adxwon + \
+                    # tf.constant(self.lambda_hb_adxlose) * mean_hb_reg_adxlose + \
 
-        loss_mean = batch_loss + \
-                    tf.constant(self.lambda_hb_adxwon) * mean_hb_reg_adxwon + \
-                    tf.constant(self.lambda_hb_adxlose) * mean_hb_reg_adxlose + \
-                    l2_norm
         # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
-
         ### gradient clipping
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
         gradients, variables = zip(*optimizer.compute_gradients(loss_mean))
