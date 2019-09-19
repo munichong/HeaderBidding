@@ -18,7 +18,7 @@ MIN_OCCURRENCE = 5
 class ParametricSurvival:
 
     def __init__(self, distribution, batch_size, num_epochs, k, learning_rate=0.001,
-                 lambda_linear=0.0, lambda_factorized=0.0, lambda_hb_adxwon=0.0, lambda_hb_adxlose=0.0):
+                 lambda_linear=0.0, lambda_factorized=0.0):
         self.distribution = distribution
         self.batch_size = batch_size
         self.num_epochs = num_epochs
@@ -26,8 +26,6 @@ class ParametricSurvival:
         self.learning_rate = learning_rate
         self.lambda_linear = lambda_linear
         self.lambda_factorized = lambda_factorized
-        self.lambda_hb_adxwon = lambda_hb_adxwon
-        self.lambda_hb_adxlose = lambda_hb_adxlose
 
     def linear_function(self, weights_linear, intercept):
         return tf.reduce_sum(weights_linear, axis=-1) + intercept
@@ -49,7 +47,7 @@ class ParametricSurvival:
         :param k: the dimensionality of the embedding, Must be >= 0; when k=0, it is a simple model; Otherwise it is factorized
         :return:
         '''
-        # INPUTs
+        ''' ================= INPUTs ================== '''
         feature_indice = tf.placeholder(tf.int32, name='feature_indice')
         feature_values = tf.placeholder(tf.float32, name='feature_values')
 
@@ -59,18 +57,24 @@ class ParametricSurvival:
         times = tf.placeholder(tf.float32, shape=[None], name='times')
         events = tf.placeholder(tf.int32, shape=[None], name='events')
 
-        # shape: (batch_size, max_nonzero_len)
-        embeddings_linear = tf.Variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=1e-5))
-        filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
-        intercept = tf.Variable(1e-5)
-        linear_term = self.linear_function(filtered_embeddings_linear, intercept)
-        scale = linear_term
 
+        ''' ================= Initialize FM Weights ================== '''
+        # shape: (batch_size, max_nonzero_len)
+        embeddings_linear = tf.get_variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=1e-5), trainable=True)
         embeddings_factorized = None
         filtered_embeddings_factorized = None
         if self.k > 0:
             # shape: (batch_size, max_nonzero_len, k)
-            embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=1e-5))
+            embeddings_factorized = tf.get_variable(
+                tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=1e-5), trainable=True)
+
+
+        ''' ================= Calculate Scale ================== '''
+        filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
+        intercept = tf.get_variable(1e-5, trainable=True)
+        scale = self.linear_function(filtered_embeddings_linear, intercept)
+
+        if self.k > 0:
             filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
                                       tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
             factorized_term = self.factorization_machines(filtered_embeddings_factorized)
@@ -78,19 +82,19 @@ class ParametricSurvival:
 
         scale = tf.nn.softplus(scale)
 
+
+        ''' ================= Calculate Failure Rate ================== '''
         ''' 
         if event == 0, right-censoring
         if event == 1, left-censoring 
         '''
-        shape = tf.Variable(0.2,
-                            trainable=True
-                            )
+        shape = tf.get_variable(0.2, trainable=True)
         not_survival_proba = self.distribution.left_censoring(times, scale, shape)  # the left area
-
-
         not_survival_bin = tf.where(tf.greater_equal(not_survival_proba, 0.5),
                                     tf.ones(tf.shape(not_survival_proba)),
                                     tf.zeros(tf.shape(not_survival_proba)))
+
+
 
         running_acc, acc_update = None, None
         if not sample_weights:
@@ -116,8 +120,6 @@ class ParametricSurvival:
             l2_norm += self.lambda_factorized * tf.nn.l2_loss(filtered_embeddings_factorized)
 
         loss_mean = batch_loss + l2_norm
-                    # tf.constant(self.lambda_hb_adxwon) * mean_hb_reg_adxwon + \
-                    # tf.constant(self.lambda_hb_adxlose) * mean_hb_reg_adxlose + \
 
         # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
         ### gradient clipping
@@ -289,9 +291,7 @@ if __name__ == "__main__":
         k=80,
         learning_rate=1e-3,
         lambda_linear=0.0,
-        lambda_factorized=0.0,
-        lambda_hb_adxwon=0.0,
-        lambda_hb_adxlose=0.0
+        lambda_factorized=0.0
     )
 
     print('Start training...')
