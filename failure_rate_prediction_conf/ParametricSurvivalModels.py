@@ -38,6 +38,34 @@ class ParametricSurvival:
                             axis=-1)
         return pairs_mulsum
 
+    def initialize_fm_weights(self, trainable):
+        # shape: (batch_size, max_nonzero_len)
+        embeddings_linear = tf.get_variable('embeddings_linear',
+                                            initializer=tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=1e-5),
+                                            trainable=trainable)
+        embeddings_factorized = None
+        if self.k > 0:
+            # shape: (batch_size, max_nonzero_len, k)
+            embeddings_factorized = tf.get_variable('embeddings_factorized',
+                                                    initializer=tf.truncated_normal(shape=(num_features, self.k),
+                                                                                    mean=0.0, stddev=1e-5),
+                                                    trainable=trainable)
+        intercept = tf.get_variable('fm_intercept', initializer=1e-5, trainable=trainable)
+        return embeddings_linear, embeddings_factorized, intercept
+
+    def calculate_scale(self, embeddings_linear, embeddings_factorized, feature_indice, feature_values, intercept):
+        filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
+        scale = self.linear_function(filtered_embeddings_linear, intercept)
+
+        filtered_embeddings_factorized = None
+        if self.k > 0:
+            filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
+                                             tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
+            factorized_term = self.factorization_machines(filtered_embeddings_factorized)
+            scale += factorized_term
+
+        scale = tf.nn.softplus(scale)
+        return scale, filtered_embeddings_linear, filtered_embeddings_factorized
 
     def run_graph(self, num_features, train_data, val_data, test_data, sample_weights=None):
         '''
@@ -59,28 +87,12 @@ class ParametricSurvival:
 
 
         ''' ================= Initialize FM Weights ================== '''
-        # shape: (batch_size, max_nonzero_len)
-        embeddings_linear = tf.get_variable(tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=1e-5), trainable=True)
-        embeddings_factorized = None
-        filtered_embeddings_factorized = None
-        if self.k > 0:
-            # shape: (batch_size, max_nonzero_len, k)
-            embeddings_factorized = tf.get_variable(
-                tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=1e-5), trainable=True)
+        embeddings_linear, embeddings_factorized, fm_intercept= self.initialize_fm_weights(trainable=True)
 
 
         ''' ================= Calculate Scale ================== '''
-        filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
-        intercept = tf.get_variable(1e-5, trainable=True)
-        scale = self.linear_function(filtered_embeddings_linear, intercept)
-
-        if self.k > 0:
-            filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
-                                      tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
-            factorized_term = self.factorization_machines(filtered_embeddings_factorized)
-            scale += factorized_term
-
-        scale = tf.nn.softplus(scale)
+        scale, filtered_embeddings_linear, filtered_embeddings_factorized = \
+            self.calculate_scale(embeddings_linear, embeddings_factorized, feature_indice, feature_values, fm_intercept)
 
 
         ''' ================= Calculate Failure Rate ================== '''
@@ -88,7 +100,7 @@ class ParametricSurvival:
         if event == 0, right-censoring
         if event == 1, left-censoring 
         '''
-        shape = tf.get_variable(0.2, trainable=True)
+        shape = tf.get_variable('dist_shape', initializer=0.2, trainable=True)
         not_survival_proba = self.distribution.left_censoring(times, scale, shape)  # the left area
         not_survival_bin = tf.where(tf.greater_equal(not_survival_proba, 0.5),
                                     tf.ones(tf.shape(not_survival_proba)),
@@ -229,14 +241,14 @@ class ParametricSurvival:
                             csv_writer.writerow((p, e, t, h, sc, sh))
                     print('All predictions are outputted for error analysis')
 
-                    # Store parameters
-                    params = {'embeddings_linear': embeddings_linear.eval(),
-                              'intercept': intercept.eval(),
-                              'shape': shape.eval(),
-                              'distribution_name': type(self.distribution).__name__}
-                    if embeddings_factorized is not None:
-                        params['embeddings_factorized'] = embeddings_factorized.eval(),
-                    pickle.dump(params, open('output/params_k%d.pkl' % self.k, 'wb'))
+                    # # Store parameters
+                    # params = {'embeddings_linear': embeddings_linear.eval(),
+                    #           'intercept': intercept.eval(),
+                    #           'shape': shape.eval(),
+                    #           'distribution_name': type(self.distribution).__name__}
+                    # if embeddings_factorized is not None:
+                    #     params['embeddings_factorized'] = embeddings_factorized.eval(),
+                    # pickle.dump(params, open('output/params_k%d.pkl' % self.k, 'wb'))
 
 
 
