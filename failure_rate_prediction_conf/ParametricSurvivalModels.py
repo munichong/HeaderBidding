@@ -18,7 +18,8 @@ MIN_OCCURRENCE = 5
 class ParametricSurvival:
 
     def __init__(self, distribution, batch_size, num_epochs, k, learning_rate=0.001,
-                 lambda_linear=0.0, lambda_factorized=0.0):
+                 lambda_linear=0.0, lambda_factorized=0.0,
+                 importance_failure_rate_optimize=0.0, importance_optimal_reserve_optimize=0.0):
         self.distribution = distribution
         self.batch_size = batch_size
         self.num_epochs = num_epochs
@@ -26,6 +27,8 @@ class ParametricSurvival:
         self.learning_rate = learning_rate
         self.lambda_linear = lambda_linear
         self.lambda_factorized = lambda_factorized
+        self.importance_failure_rate_optimize = importance_failure_rate_optimize
+        self.importance_optimal_reserve_optimize = importance_optimal_reserve_optimize
 
     def linear_function(self, weights_linear, intercept):
         return tf.reduce_sum(weights_linear, axis=-1) + intercept
@@ -38,7 +41,7 @@ class ParametricSurvival:
                             axis=-1)
         return pairs_mulsum
 
-    def initialize_fm_weights(self, trainable):
+    def initialize_fm_weights(self, trainable=True):
         # shape: (batch_size, max_nonzero_len)
         embeddings_linear = tf.get_variable('embeddings_linear',
                                             initializer=tf.truncated_normal(shape=(num_features,), mean=0.0, stddev=1e-5),
@@ -53,19 +56,40 @@ class ParametricSurvival:
         intercept = tf.get_variable('fm_intercept', initializer=1e-5, trainable=trainable)
         return embeddings_linear, embeddings_factorized, intercept
 
+    def initialize_optimal_reserve(self, tensor_shape, trainable=True):
+        return tf.get_variable('opt_res',
+                               initializer=tf.truncated_normal(shape=tensor_shape, mean=0.0, stddev=1e-1),
+                               trainable=trainable)
+
     def calculate_scale(self, embeddings_linear, embeddings_factorized, feature_indice, feature_values, intercept):
         filtered_embeddings_linear = tf.nn.embedding_lookup(embeddings_linear, feature_indice) * feature_values
-        scale = self.linear_function(filtered_embeddings_linear, intercept)
+        scales = self.linear_function(filtered_embeddings_linear, intercept)
 
         filtered_embeddings_factorized = None
         if self.k > 0:
             filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
                                              tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
             factorized_term = self.factorization_machines(filtered_embeddings_factorized)
-            scale += factorized_term
+            scales += factorized_term
 
-        scale = tf.nn.softplus(scale)
-        return scale, filtered_embeddings_linear, filtered_embeddings_factorized
+        scales = tf.nn.softplus(scales)
+        return scales, filtered_embeddings_linear, filtered_embeddings_factorized
+
+    def compute_failure_rate(self, hist_res, scales, trainable=True):
+        '''
+        if event == 0, right-censoring
+        if event == 1, left-censoring
+        '''
+        shape = tf.get_variable('dist_shape', initializer=0.2, trainable=trainable)
+        not_survival_proba = self.distribution.left_censoring(hist_res, scales, shape)  # the left area
+        not_survival_bin = tf.where(tf.greater_equal(not_survival_proba, 0.5),
+                                    tf.ones(tf.shape(not_survival_proba)),
+                                    tf.zeros(tf.shape(not_survival_proba)))
+        return not_survival_proba, not_survival_bin
+
+    def compute_lower_bound_expected_revenue(self, optimal_reserve_prices, scales, max_hbs):
+        optimal_failure_proba, _ = self.compute_failure_rate(optimal_reserve_prices, scales)
+        return (1 - optimal_failure_proba) * optimal_reserve_prices + optimal_failure_proba * max_hbs
 
     def run_graph(self, num_features, train_data, val_data, test_data, sample_weights=None):
         '''
@@ -82,63 +106,76 @@ class ParametricSurvival:
         min_hbs = tf.placeholder(tf.float32, name='min_headerbids')  # for regularization
         max_hbs = tf.placeholder(tf.float32, name='max_headerbids')  # for regularization
 
-        times = tf.placeholder(tf.float32, shape=[None], name='times')
-        events = tf.placeholder(tf.int32, shape=[None], name='events')
-
+        hist_reserve_prices = tf.placeholder(tf.float32, shape=[None], name='times')  # historical reserve price
+        events = tf.placeholder(tf.int32, shape=[None], name='events')  # if the historical reserve price was failed to be outbid
 
         ''' ================= Initialize FM Weights ================== '''
-        embeddings_linear, embeddings_factorized, fm_intercept= self.initialize_fm_weights(trainable=True)
-
+        embeddings_linear, embeddings_factorized, fm_intercept = self.initialize_fm_weights()
 
         ''' ================= Calculate Scale ================== '''
-        scale, filtered_embeddings_linear, filtered_embeddings_factorized = \
+        scales, filtered_embeddings_linear, filtered_embeddings_factorized = \
             self.calculate_scale(embeddings_linear, embeddings_factorized, feature_indice, feature_values, fm_intercept)
 
+        ''' ================= Calculate Historical Failure Rate ================== '''
+        hist_failure_proba, hist_failure_bin = self.compute_failure_rate(hist_reserve_prices, scales)
 
-        ''' ================= Calculate Failure Rate ================== '''
-        ''' 
-        if event == 0, right-censoring
-        if event == 1, left-censoring 
-        '''
-        shape = tf.get_variable('dist_shape', initializer=0.2, trainable=True)
-        not_survival_proba = self.distribution.left_censoring(times, scale, shape)  # the left area
-        not_survival_bin = tf.where(tf.greater_equal(not_survival_proba, 0.5),
-                                    tf.ones(tf.shape(not_survival_proba)),
-                                    tf.zeros(tf.shape(not_survival_proba)))
-
-
-
-        running_acc, acc_update = None, None
+        ''' =========== Calculate The Loss of Historical Failure Rate Prediction =========== '''
+        failure_rate_running_acc, failure_rate_acc_update = None, None
         if not sample_weights:
-            running_acc, acc_update = tf.metrics.accuracy(labels=events, predictions=not_survival_bin)
+            failure_rate_running_acc, failure_rate_acc_update = tf.metrics.accuracy(labels=events, predictions=hist_failure_bin)
         elif sample_weights == 'time':
-            running_acc, acc_update = tf.metrics.accuracy(labels=events, predictions=not_survival_bin, weights=times)
+            failure_rate_running_acc, failure_rate_acc_update = tf.metrics.accuracy(labels=events, predictions=hist_failure_bin,
+                                                          weights=hist_reserve_prices)
 
-        batch_loss = None
+        batch_failure_rate_loss = None
         if not sample_weights:
-            batch_loss = tf.losses.log_loss(labels=events, predictions=not_survival_proba,
-                                            reduction = tf.losses.Reduction.MEAN)
+            batch_failure_rate_loss = tf.losses.log_loss(labels=events, predictions=hist_failure_proba,
+                                            reduction=tf.losses.Reduction.MEAN)
         elif sample_weights == 'time':
-            # class_weights = tf.where(tf.equal(events, 1),
-            #                             tf.ones(tf.shape(events)) * 100,
-            #                             tf.ones(tf.shape(events)))
-            batch_loss = tf.losses.log_loss(labels=events, predictions=not_survival_proba, weights=times,
-                                            reduction = tf.losses.Reduction.MEAN)
-        running_loss, loss_update = tf.metrics.mean(batch_loss)
+            batch_failure_rate_loss = tf.losses.log_loss(labels=events, predictions=hist_failure_proba, weights=hist_reserve_prices,
+                                            reduction=tf.losses.Reduction.MEAN)
+        failure_rate_running_loss, failure_rate_loss_update = tf.metrics.mean(batch_failure_rate_loss)
+
+
+
+        ''' ================= Calculate Lower Bound Expected Revenue ================== '''
+        optimal_reserve_prices = self.initialize_optimal_reserve(tf.shape(hist_reserve_prices))
+        lower_bound_expected_revenue = self.compute_lower_bound_expected_revenue(optimal_reserve_prices, scales, max_hbs)
+        batch_expected_revenue_mean_loss = -1 * tf.mean(lower_bound_expected_revenue)
+
+        ''' =============== Optimize to Compute The Optimal Failure Rate ============== '''
+        expected_revenue_optimizer = tf.train.AdamOptimizer(
+            learning_rate=self.learning_rate
+        ).minimize(
+            loss=batch_expected_revenue_mean_loss,
+            var_list=[optimal_reserve_prices]
+        )
+
+
+
+
+
+
+
+
+
 
         ''' ============= L2 regularized sum of squares loss function over the embeddings ============= '''
         l2_norm = self.lambda_linear * tf.nn.l2_loss(filtered_embeddings_linear)
         if embeddings_factorized is not None:
             l2_norm += self.lambda_factorized * tf.nn.l2_loss(filtered_embeddings_factorized)
 
-        loss_mean = batch_loss + l2_norm
+        ''' ====================== Combine All Losses ======================= '''
+        combined_loss_mean = batch_expected_revenue_mean_loss + \
+                     self.importance_failure_rate_optimize * batch_failure_rate_loss + \
+                     self.importance_optimal_reserve_optimize
 
-        # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(loss_mean)
+        # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(combined_loss_mean)
         ### gradient clipping
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-        gradients, variables = zip(*optimizer.compute_gradients(loss_mean))
+        combined_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        gradients, variables = zip(*combined_optimizer.compute_gradients(combined_loss_mean))
         gradients_clipped, _ = tf.clip_by_global_norm(gradients, 5.0)
-        training_op = optimizer.apply_gradients(zip(gradients_clipped, variables))
+        combined_training_optimizer = combined_optimizer.apply_gradients(zip(gradients_clipped, variables))
 
 
         # Isolate the variables stored behind the scenes by the metric operation
@@ -160,20 +197,31 @@ class ParametricSurvival:
                 # model training
                 num_batch = 0
                 start = nowtime()
-                for time_batch, event_batch, featidx_batch, featval_batch, minhbs_natch, maxhbs_batch, max_nz_len \
+                for time_batch, event_batch, featidx_batch, featval_batch, minhbs_batch, maxhbs_batch, max_nz_len \
                         in train_data.make_sparse_batch(self.batch_size, only_freq=ONLY_FREQ_TRAIN):
 
                     num_batch += 1
 
-                    _, loss_batch, _, event_batch, time_batch, shape_batch = sess.run([training_op, loss_mean,
-                                                                  acc_update, events, times, shape],
+                    sess.run([expected_revenue_optimizer], feed_dict={
+                                                                       'feature_indice:0': featidx_batch,
+                                                                       'feature_values:0': featval_batch,
+                                                                       'min_headerbids:0': minhbs_batch,
+                                                                       'max_headerbids:0': maxhbs_batch,
+                                                                       'times:0': time_batch,
+                                                                       'events:0': event_batch
+                                                                   })
+
+                    _, combined_loss_batch, _ = sess.run([combined_training_optimizer,
+                                                          combined_loss_mean,
+                                                          failure_rate_acc_update],
                                                                    feed_dict={
-                                             'feature_indice:0': featidx_batch,
-                                             'feature_values:0': featval_batch,
-                                             'min_headerbids:0': minhbs_natch,
-                                             'max_headerbids:0': maxhbs_batch,
-                                             'times:0': time_batch,
-                                             'events:0': event_batch})
+                                                                       'feature_indice:0': featidx_batch,
+                                                                       'feature_values:0': featval_batch,
+                                                                       'min_headerbids:0': minhbs_batch,
+                                                                       'max_headerbids:0': maxhbs_batch,
+                                                                       'times:0': time_batch,
+                                                                       'events:0': event_batch
+                                                                   })
 
                     # print()
                     # print('mean_hb_reg_adxwon_batch')
@@ -188,15 +236,15 @@ class ParametricSurvival:
                     # print(shape_batch)
 
                     if epoch == 1:
-                        print("Epoch %d - Batch %d/%d: batch loss = %.4f" %
-                              (epoch, num_batch, num_total_batches, loss_batch))
+                        print("Epoch %d - Batch %d/%d: combined batch loss = %.4f" %
+                              (epoch, num_batch, num_total_batches, combined_loss_batch))
                         print("                         time: %.4fs" % (nowtime() - start))
                         start = nowtime()
 
 
                 # evaluation on training data
-                eval_nodes_update = [loss_update, acc_update, not_survival_proba, scale, max_hbs]
-                eval_nodes_metric = [running_loss, running_acc]
+                eval_nodes_update = [failure_rate_loss_update, failure_rate_acc_update, hist_failure_proba, scales, max_hbs]
+                eval_nodes_metric = [failure_rate_running_loss, failure_rate_running_acc]
                 print()
                 print("========== Evaluation at Epoch %d ==========" % epoch)
                 print('*** On Training Set:')
@@ -235,10 +283,9 @@ class ParametricSurvival:
                     # Store prediction results
                     with open('output/all_predictions_factorized.csv', 'w', newline="\n") as outfile:
                         csv_writer = csv.writer(outfile)
-                        csv_writer.writerow(('NOT_SURV_PROB', 'EVENTS', 'MAX(RESERVE, REVENUE)', 'MAX_HB', 'SCALE', 'SHAPE'))
-                        sh = shape.eval()
+                        csv_writer.writerow(('NOT_SURV_PROB', 'EVENTS', 'MAX(RESERVE, REVENUE)', 'MAX_HB', 'SCALE'))
                         for p, e, t, h, sc in zip(not_survival_test, events_test, times_test, max_hbs_test, scale_test):
-                            csv_writer.writerow((p, e, t, h, sc, sh))
+                            csv_writer.writerow((p, e, t, h, sc))
                     print('All predictions are outputted for error analysis')
 
                     # # Store parameters
@@ -261,11 +308,11 @@ class ParametricSurvival:
         all_scales = []
         all_max_hbs = []
         sess.run(running_init)
-        for time_batch, event_batch, featidx_batch, featval_batch, minhbs_natch, maxhbs_batch, max_nz_len in next_batch:
+        for time_batch, event_batch, featidx_batch, featval_batch, minhbs_batch, maxhbs_batch, max_nz_len in next_batch:
             _, _, not_survival, scale_batch, max_hbs_batch  = sess.run(updates, feed_dict={
                                              'feature_indice:0': featidx_batch,
                                              'feature_values:0': featval_batch,
-                                             'min_headerbids:0': minhbs_natch,
+                                             'min_headerbids:0': minhbs_batch,
                                              'max_headerbids:0': maxhbs_batch,
                                              'times:0': time_batch,
                                              'events:0': event_batch})
