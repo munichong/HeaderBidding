@@ -128,28 +128,28 @@ class ParametricSurvival:
             failure_rate_running_acc, failure_rate_acc_update = tf.metrics.accuracy(labels=events, predictions=hist_failure_bin,
                                                           weights=hist_reserve_prices)
 
-        batch_failure_rate_loss = None
+        failure_rate_loss = None
         if not sample_weights:
-            batch_failure_rate_loss = tf.losses.log_loss(labels=events, predictions=hist_failure_proba,
+            failure_rate_loss = tf.losses.log_loss(labels=events, predictions=hist_failure_proba,
                                             reduction=tf.losses.Reduction.MEAN)
         elif sample_weights == 'time':
-            batch_failure_rate_loss = tf.losses.log_loss(labels=events, predictions=hist_failure_proba, weights=hist_reserve_prices,
+            failure_rate_loss = tf.losses.log_loss(labels=events, predictions=hist_failure_proba, weights=hist_reserve_prices,
                                             reduction=tf.losses.Reduction.MEAN)
-        failure_rate_running_loss, failure_rate_loss_update = tf.metrics.mean(batch_failure_rate_loss)
+        failure_rate_running_loss, failure_rate_loss_update = tf.metrics.mean(failure_rate_loss)
 
 
 
         ''' ================= Calculate Lower Bound Expected Revenue ================== '''
         optimal_reserve_prices = self.initialize_optimal_reserve()
         lower_bound_expected_revenue = self.compute_lower_bound_expected_revenue(optimal_reserve_prices, scales, max_hbs, shape)
-        batch_expected_revenue_mean_loss = -1 * tf.reduce_mean(lower_bound_expected_revenue)
+        expected_revenue_mean_loss = -1 * tf.reduce_mean(lower_bound_expected_revenue)
 
 
         ''' =============== Optimize to Compute The Optimal Failure Rate ============== '''
         expected_revenue_optimizer = tf.train.AdamOptimizer(
             learning_rate=self.learning_rate
         ).minimize(
-            loss=batch_expected_revenue_mean_loss,
+            loss=expected_revenue_mean_loss,
             var_list=[optimal_reserve_prices]
         )
 
@@ -168,14 +168,14 @@ class ParametricSurvival:
             l2_norm += self.lambda_factorized * tf.nn.l2_loss(filtered_embeddings_factorized)
 
         ''' ====================== Combine All Losses ======================= '''
-        combined_loss_mean = batch_expected_revenue_mean_loss + \
-                     self.importance_failure_rate_optimize * batch_failure_rate_loss + \
+        combined_mean_loss = expected_revenue_mean_loss + \
+                     self.importance_failure_rate_optimize * failure_rate_loss + \
                      self.importance_optimal_reserve_optimize
 
         # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(combined_loss_mean)
         ### gradient clipping
         combined_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-        gradients, variables = zip(*combined_optimizer.compute_gradients(combined_loss_mean,
+        gradients, variables = zip(*combined_optimizer.compute_gradients(combined_mean_loss,
                                                                          var_list=[embeddings_linear,
                                                                                    embeddings_factorized,
                                                                                    fm_intercept, shape]))
@@ -212,7 +212,7 @@ class ParametricSurvival:
                     num_batch += 1
 
                     _, batch_expected_revenue_mean_loss = \
-                        sess.run([expected_revenue_optimizer, batch_expected_revenue_mean_loss],
+                        sess.run([expected_revenue_optimizer, expected_revenue_mean_loss],
                                  feed_dict={
                                      'feature_indice:0': featidx_batch,
                                      'feature_values:0': featval_batch,
@@ -223,7 +223,7 @@ class ParametricSurvival:
 
 
                     _, combined_loss_batch = sess.run([combined_training_optimizer,
-                                                       combined_loss_mean
+                                                       combined_mean_loss
                                                        ],
                                                       feed_dict={
                                                           'feature_indice:0': featidx_batch,
