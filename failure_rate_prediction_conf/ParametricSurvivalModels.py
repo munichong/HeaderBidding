@@ -56,9 +56,9 @@ class ParametricSurvival:
         intercept = tf.get_variable('fm_intercept', initializer=1e-5, trainable=trainable)
         return embeddings_linear, embeddings_factorized, intercept
 
-    def initialize_optimal_reserve(self, tensor_shape, trainable=True):
+    def initialize_optimal_reserve(self, trainable=True):
         return tf.get_variable('opt_res',
-                               initializer=tf.truncated_normal(shape=tensor_shape, mean=0.0, stddev=1e-1),
+                               initializer=tf.truncated_normal(shape=self.batch_size, mean=0.0, stddev=1e-1),
                                validate_shape=False,
                                trainable=trainable)
 
@@ -140,9 +140,10 @@ class ParametricSurvival:
 
 
         ''' ================= Calculate Lower Bound Expected Revenue ================== '''
-        optimal_reserve_prices = self.initialize_optimal_reserve(tf.shape(hist_reserve_prices))
+        optimal_reserve_prices = self.initialize_optimal_reserve()
         lower_bound_expected_revenue = self.compute_lower_bound_expected_revenue(optimal_reserve_prices, scales, max_hbs, shape)
         batch_expected_revenue_mean_loss = -1 * tf.reduce_mean(lower_bound_expected_revenue)
+
 
         ''' =============== Optimize to Compute The Optimal Failure Rate ============== '''
         expected_revenue_optimizer = tf.train.AdamOptimizer(
