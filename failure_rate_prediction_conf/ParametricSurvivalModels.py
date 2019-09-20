@@ -59,6 +59,7 @@ class ParametricSurvival:
     def initialize_optimal_reserve(self, tensor_shape, trainable=True):
         return tf.get_variable('opt_res',
                                initializer=tf.truncated_normal(shape=tensor_shape, mean=0.0, stddev=1e-1),
+                               validate_shape=False,
                                trainable=trainable)
 
     def calculate_scale(self, embeddings_linear, embeddings_factorized, feature_indice, feature_values, intercept):
@@ -75,20 +76,19 @@ class ParametricSurvival:
         scales = tf.nn.softplus(scales)
         return scales, filtered_embeddings_linear, filtered_embeddings_factorized
 
-    def compute_failure_rate(self, hist_res, scales, trainable=True):
+    def compute_failure_rate(self, hist_res, scales, shape):
         '''
         if event == 0, right-censoring
         if event == 1, left-censoring
         '''
-        shape = tf.get_variable('dist_shape', initializer=0.2, trainable=trainable)
         not_survival_proba = self.distribution.left_censoring(hist_res, scales, shape)  # the left area
         not_survival_bin = tf.where(tf.greater_equal(not_survival_proba, 0.5),
                                     tf.ones(tf.shape(not_survival_proba)),
                                     tf.zeros(tf.shape(not_survival_proba)))
         return not_survival_proba, not_survival_bin
 
-    def compute_lower_bound_expected_revenue(self, optimal_reserve_prices, scales, max_hbs):
-        optimal_failure_proba, _ = self.compute_failure_rate(optimal_reserve_prices, scales)
+    def compute_lower_bound_expected_revenue(self, optimal_reserve_prices, scales, max_hbs, shape):
+        optimal_failure_proba, _ = self.compute_failure_rate(optimal_reserve_prices, scales, shape)
         return (1 - optimal_failure_proba) * optimal_reserve_prices + optimal_failure_proba * max_hbs
 
     def run_graph(self, num_features, train_data, val_data, test_data, sample_weights=None):
@@ -117,7 +117,8 @@ class ParametricSurvival:
             self.calculate_scale(embeddings_linear, embeddings_factorized, feature_indice, feature_values, fm_intercept)
 
         ''' ================= Calculate Historical Failure Rate ================== '''
-        hist_failure_proba, hist_failure_bin = self.compute_failure_rate(hist_reserve_prices, scales)
+        shape = tf.get_variable('dist_shape', initializer=0.2, trainable=True)
+        hist_failure_proba, hist_failure_bin = self.compute_failure_rate(hist_reserve_prices, scales, shape)
 
         ''' =========== Calculate The Loss of Historical Failure Rate Prediction =========== '''
         failure_rate_running_acc, failure_rate_acc_update = None, None
@@ -140,8 +141,8 @@ class ParametricSurvival:
 
         ''' ================= Calculate Lower Bound Expected Revenue ================== '''
         optimal_reserve_prices = self.initialize_optimal_reserve(tf.shape(hist_reserve_prices))
-        lower_bound_expected_revenue = self.compute_lower_bound_expected_revenue(optimal_reserve_prices, scales, max_hbs)
-        batch_expected_revenue_mean_loss = -1 * tf.mean(lower_bound_expected_revenue)
+        lower_bound_expected_revenue = self.compute_lower_bound_expected_revenue(optimal_reserve_prices, scales, max_hbs, shape)
+        batch_expected_revenue_mean_loss = -1 * tf.reduce_mean(lower_bound_expected_revenue)
 
         ''' =============== Optimize to Compute The Optimal Failure Rate ============== '''
         expected_revenue_optimizer = tf.train.AdamOptimizer(
@@ -173,7 +174,10 @@ class ParametricSurvival:
         # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(combined_loss_mean)
         ### gradient clipping
         combined_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-        gradients, variables = zip(*combined_optimizer.compute_gradients(combined_loss_mean))
+        gradients, variables = zip(*combined_optimizer.compute_gradients(combined_loss_mean,
+                                                                         var_list=[embeddings_linear,
+                                                                                   embeddings_factorized,
+                                                                                   fm_intercept, shape]))
         gradients_clipped, _ = tf.clip_by_global_norm(gradients, 5.0)
         combined_training_optimizer = combined_optimizer.apply_gradients(zip(gradients_clipped, variables))
 
@@ -202,26 +206,27 @@ class ParametricSurvival:
 
                     num_batch += 1
 
-                    sess.run([expected_revenue_optimizer], feed_dict={
-                                                                       'feature_indice:0': featidx_batch,
-                                                                       'feature_values:0': featval_batch,
-                                                                       'min_headerbids:0': minhbs_batch,
-                                                                       'max_headerbids:0': maxhbs_batch,
-                                                                       'times:0': time_batch,
-                                                                       'events:0': event_batch
-                                                                   })
+                    _, batch_expected_revenue_mean_loss = \
+                        sess.run([expected_revenue_optimizer, batch_expected_revenue_mean_loss],
+                                 feed_dict={
+                                     'feature_indice:0': featidx_batch,
+                                     'feature_values:0': featval_batch,
+                                     'min_headerbids:0': minhbs_batch,
+                                     'max_headerbids:0': maxhbs_batch,
+                                     'times:0': time_batch,
+                                     'events:0': event_batch})
 
-                    _, combined_loss_batch, _ = sess.run([combined_training_optimizer,
-                                                          combined_loss_mean,
-                                                          failure_rate_acc_update],
-                                                                   feed_dict={
-                                                                       'feature_indice:0': featidx_batch,
-                                                                       'feature_values:0': featval_batch,
-                                                                       'min_headerbids:0': minhbs_batch,
-                                                                       'max_headerbids:0': maxhbs_batch,
-                                                                       'times:0': time_batch,
-                                                                       'events:0': event_batch
-                                                                   })
+
+                    _, combined_loss_batch = sess.run([combined_training_optimizer,
+                                                       combined_loss_mean
+                                                       ],
+                                                      feed_dict={
+                                                          'feature_indice:0': featidx_batch,
+                                                          'feature_values:0': featval_batch,
+                                                          'min_headerbids:0': minhbs_batch,
+                                                          'max_headerbids:0': maxhbs_batch,
+                                                          'times:0': time_batch,
+                                                          'events:0': event_batch})
 
                     # print()
                     # print('mean_hb_reg_adxwon_batch')
@@ -238,6 +243,7 @@ class ParametricSurvival:
                     if epoch == 1:
                         print("Epoch %d - Batch %d/%d: combined batch loss = %.4f" %
                               (epoch, num_batch, num_total_batches, combined_loss_batch))
+                        print("                         expected revenue = %.4f" % batch_expected_revenue_mean_loss)
                         print("                         time: %.4fs" % (nowtime() - start))
                         start = nowtime()
 
