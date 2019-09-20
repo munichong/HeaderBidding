@@ -205,6 +205,10 @@ class ParametricSurvival:
                 for time_batch, event_batch, featidx_batch, featval_batch, minhbs_batch, maxhbs_batch, max_nz_len \
                         in train_data.make_sparse_batch(self.batch_size, only_freq=ONLY_FREQ_TRAIN):
 
+                    if time_batch.shape[0] < self.batch_size:
+                        print("Skip the batch whose size is %d < %d" % (time_batch.shape[0], self.batch_size))
+                        break
+
                     num_batch += 1
 
                     _, batch_expected_revenue_mean_loss = \
