@@ -58,7 +58,7 @@ class ParametricSurvival:
 
     def initialize_optimal_reserve(self, trainable=True):
         return tf.get_variable('opt_res',
-                               initializer=tf.truncated_normal(shape=self.batch_size, mean=0.0, stddev=1e-1),
+                               initializer=tf.truncated_normal(shape=[self.batch_size], mean=0.0, stddev=1e-1),
                                validate_shape=False,
                                trainable=trainable)
 
@@ -140,8 +140,9 @@ class ParametricSurvival:
 
 
         ''' ================= Calculate Lower Bound Expected Revenue ================== '''
-        optimal_reserve_prices = self.initialize_optimal_reserve()
-        lower_bound_expected_revenue = self.compute_lower_bound_expected_revenue(optimal_reserve_prices, scales, max_hbs, shape)
+        optimal_reserve_prices_raw = self.initialize_optimal_reserve()
+        optimal_reserve_prices_positive = tf.square(optimal_reserve_prices_raw)
+        lower_bound_expected_revenue = self.compute_lower_bound_expected_revenue(optimal_reserve_prices_positive, scales, max_hbs, shape)
         expected_revenue_mean_loss = -1 * tf.reduce_mean(lower_bound_expected_revenue)
 
 
@@ -150,7 +151,7 @@ class ParametricSurvival:
             learning_rate=self.learning_rate
         ).minimize(
             loss=expected_revenue_mean_loss,
-            var_list=[optimal_reserve_prices]
+            var_list=[optimal_reserve_prices_raw]
         )
 
 
@@ -211,8 +212,12 @@ class ParametricSurvival:
 
                     num_batch += 1
 
-                    _, batch_expected_revenue_mean_loss = \
-                        sess.run([expected_revenue_optimizer, expected_revenue_mean_loss],
+                    _, batch_expected_revenue_mean_loss, batch_optimal_reserve_prices, batch_lower_bound_expected_revenue = \
+                        sess.run([expected_revenue_optimizer,
+                                  expected_revenue_mean_loss,
+                                  optimal_reserve_prices_positive,
+                                  lower_bound_expected_revenue
+                                  ],
                                  feed_dict={
                                      'feature_indice:0': featidx_batch,
                                      'feature_values:0': featval_batch,
@@ -222,9 +227,12 @@ class ParametricSurvival:
                                      'events:0': event_batch})
 
 
-                    _, combined_loss_batch = sess.run([combined_training_optimizer,
-                                                       combined_mean_loss
-                                                       ],
+                    _, combined_loss_batch, batch_hist_failure_proba, batch_scales = sess.run([
+                        combined_training_optimizer,
+                        combined_mean_loss,
+                        hist_failure_proba,
+                        scales
+                    ],
                                                       feed_dict={
                                                           'feature_indice:0': featidx_batch,
                                                           'feature_values:0': featval_batch,
@@ -233,11 +241,15 @@ class ParametricSurvival:
                                                           'times:0': time_batch,
                                                           'events:0': event_batch})
 
-                    # print()
-                    # print('mean_hb_reg_adxwon_batch')
-                    # print(mean_hb_reg_adxwon_batch)
-                    # print('mean_hb_reg_adxlose_batch')
-                    # print(mean_hb_reg_adxlose_batch)
+                    print()
+                    print('optimal_reserve_prices')
+                    print(batch_optimal_reserve_prices)
+                    print('lower_bound_expected_revenue')
+                    print(batch_lower_bound_expected_revenue)
+                    print('hist_failure_proba')
+                    print(batch_hist_failure_proba)
+                    print('scales')
+                    print(batch_scales)
                     # print('mean_batch_loss_batch')
                     # print(mean_batch_loss_batch)
                     # print("event_batch")
