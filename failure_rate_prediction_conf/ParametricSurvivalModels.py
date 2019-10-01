@@ -87,9 +87,35 @@ class ParametricSurvival:
                                     tf.zeros(tf.shape(not_survival_proba)))
         return not_survival_proba, not_survival_bin
 
-    def compute_lower_bound_expected_revenue(self, optimal_reserve_prices, scales, max_hbs, shape):
-        optimal_failure_proba, _ = self.compute_failure_rate(optimal_reserve_prices, scales, shape)
-        return (1 - optimal_failure_proba) * optimal_reserve_prices + optimal_failure_proba * max_hbs
+    def compute_lower_bound_expected_revenue(self, opt_reserves, scales, max_hbs, shape):
+        optimal_failure_proba, _ = self.compute_failure_rate(opt_reserves, scales, shape)
+        return (1 - optimal_failure_proba) * opt_reserves + optimal_failure_proba * max_hbs
+
+    def wrong_side_large_penalty(self, larger_reserves, less_reserves):
+        return tf.square(larger_reserves - less_reserves)
+
+    def right_side_small_penalty(self, larger_reserves, less_reserves):
+        return tf.zeros(tf.shape(larger_reserves))
+
+    def compute_optimal_reserve_error(self, opt_reserves, hist_reserves, was_failed):
+        loss1 = tf.where(tf.logical_and(tf.equal(was_failed, 1),
+                                        tf.greater_equal(opt_reserves, hist_reserves)),
+                        self.wrong_side_large_penalty(opt_reserves, hist_reserves),
+                        tf.zeros(tf.shape(was_failed)))
+        loss2 = tf.where(tf.logical_and(tf.equal(was_failed, 1),
+                                        tf.less(opt_reserves, hist_reserves)),
+                        self.right_side_small_penalty(hist_reserves, opt_reserves),
+                        tf.zeros(tf.shape(was_failed)))
+        loss3 = tf.where(tf.logical_and(tf.equal(was_failed, 0),
+                                        tf.less_equal(opt_reserves, hist_reserves)),
+                        self.wrong_side_large_penalty(hist_reserves, opt_reserves),
+                        tf.zeros(tf.shape(was_failed)))
+        loss4 = tf.where(tf.logical_and(tf.equal(was_failed, 0),
+                                        tf.greater(opt_reserves, hist_reserves)),
+                         self.right_side_small_penalty(opt_reserves, hist_reserves),
+                         tf.zeros(tf.shape(was_failed)))
+        return tf.reduce_mean(loss1 + loss2 + loss3 + loss4)
+
 
     def run_graph(self, num_features, train_data, val_data, test_data, sample_weights=None):
         '''
@@ -107,7 +133,7 @@ class ParametricSurvival:
         max_hbs = tf.placeholder(tf.float32, name='max_headerbids')  # for regularization
 
         hist_reserve_prices = tf.placeholder(tf.float32, shape=[None], name='times')  # historical reserve price
-        events = tf.placeholder(tf.int32, shape=[None], name='events')  # if the historical reserve price was failed to be outbid
+        was_failed = tf.placeholder(tf.int32, shape=[None], name='events')  # if the historical reserve price was failed to be outbid
 
         ''' ================= Initialize FM Weights ================== '''
         embeddings_linear, embeddings_factorized, fm_intercept = self.initialize_fm_weights()
@@ -123,20 +149,19 @@ class ParametricSurvival:
         ''' =========== Calculate The Loss of Historical Failure Rate Prediction =========== '''
         failure_rate_running_acc, failure_rate_acc_update = None, None
         if not sample_weights:
-            failure_rate_running_acc, failure_rate_acc_update = tf.metrics.accuracy(labels=events, predictions=hist_failure_bin)
+            failure_rate_running_acc, failure_rate_acc_update = tf.metrics.accuracy(labels=was_failed, predictions=hist_failure_bin)
         elif sample_weights == 'time':
-            failure_rate_running_acc, failure_rate_acc_update = tf.metrics.accuracy(labels=events, predictions=hist_failure_bin,
+            failure_rate_running_acc, failure_rate_acc_update = tf.metrics.accuracy(labels=was_failed, predictions=hist_failure_bin,
                                                           weights=hist_reserve_prices)
 
         failure_rate_loss = None
         if not sample_weights:
-            failure_rate_loss = tf.losses.log_loss(labels=events, predictions=hist_failure_proba,
+            failure_rate_loss = tf.losses.log_loss(labels=was_failed, predictions=hist_failure_proba,
                                             reduction=tf.losses.Reduction.MEAN)
         elif sample_weights == 'time':
-            failure_rate_loss = tf.losses.log_loss(labels=events, predictions=hist_failure_proba, weights=hist_reserve_prices,
+            failure_rate_loss = tf.losses.log_loss(labels=was_failed, predictions=hist_failure_proba, weights=hist_reserve_prices,
                                             reduction=tf.losses.Reduction.MEAN)
         failure_rate_running_loss, failure_rate_loss_update = tf.metrics.mean(failure_rate_loss)
-
 
 
         ''' ================= Calculate Lower Bound Expected Revenue ================== '''
@@ -146,7 +171,7 @@ class ParametricSurvival:
         expected_revenue_mean_loss = -1 * tf.reduce_mean(lower_bound_expected_revenue)
 
 
-        ''' =============== Optimize to Compute The Optimal Failure Rate ============== '''
+        ''' =============== Optimize Lower Bound Expected Revenue ============== '''
         expected_revenue_optimizer = tf.train.AdamOptimizer(
             learning_rate=self.learning_rate
         ).minimize(
@@ -154,24 +179,20 @@ class ParametricSurvival:
             var_list=[optimal_reserve_prices_raw]
         )
 
-
-
-
-
-
-
-
-
+        ''' =============== Calculate the Loss of Wrong-Side Optimal Revenue =============== '''
+        optimal_reserve_loss = self.compute_optimal_reserve_error(optimal_reserve_prices_positive,
+                                                                  hist_reserve_prices,
+                                                                  was_failed)
 
         ''' ============= L2 regularized sum of squares loss function over the embeddings ============= '''
         l2_norm = self.lambda_linear * tf.nn.l2_loss(filtered_embeddings_linear)
         if embeddings_factorized is not None:
             l2_norm += self.lambda_factorized * tf.nn.l2_loss(filtered_embeddings_factorized)
 
-        ''' ====================== Combine All Losses ======================= '''
+        ''' ====================== Combine and Optimize All Losses ======================= '''
         combined_mean_loss = expected_revenue_mean_loss + \
                      self.importance_failure_rate_optimize * failure_rate_loss + \
-                     self.importance_optimal_reserve_optimize
+                     self.importance_optimal_reserve_optimize * optimal_reserve_loss
 
         # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(combined_loss_mean)
         ### gradient clipping
@@ -212,7 +233,7 @@ class ParametricSurvival:
 
                     num_batch += 1
 
-                    _, batch_expected_revenue_mean_loss, batch_optimal_reserve_prices, batch_lower_bound_expected_revenue = \
+                    _, batch_expected_revenue_mean_loss, batch_optimal_reserve_prices1, batch_lower_bound_expected_revenue = \
                         sess.run([expected_revenue_optimizer,
                                   expected_revenue_mean_loss,
                                   optimal_reserve_prices_positive,
@@ -227,11 +248,11 @@ class ParametricSurvival:
                                      'events:0': event_batch})
 
 
-                    _, combined_loss_batch, batch_hist_failure_proba, batch_scales = sess.run([
+                    _, combined_loss_batch, batch_hist_failure_proba, batch_optimal_reserve_prices2 = sess.run([
                         combined_training_optimizer,
                         combined_mean_loss,
                         hist_failure_proba,
-                        scales
+                        optimal_reserve_prices_positive
                     ],
                                                       feed_dict={
                                                           'feature_indice:0': featidx_batch,
@@ -242,14 +263,14 @@ class ParametricSurvival:
                                                           'events:0': event_batch})
 
                     print()
-                    print('optimal_reserve_prices')
-                    print(batch_optimal_reserve_prices)
-                    print('lower_bound_expected_revenue')
-                    print(batch_lower_bound_expected_revenue)
-                    print('hist_failure_proba')
-                    print(batch_hist_failure_proba)
-                    print('scales')
-                    print(batch_scales)
+                    # print('optimal_reserve_prices')
+                    # print(batch_optimal_reserve_prices)
+                    # print('lower_bound_expected_revenue')
+                    # print(batch_lower_bound_expected_revenue)
+                    # print('hist_failure_proba')
+                    # print(batch_hist_failure_proba)
+                    # print('scales')
+                    # print(batch_scales)
                     # print('mean_batch_loss_batch')
                     # print(mean_batch_loss_batch)
                     # print("event_batch")
@@ -369,11 +390,13 @@ if __name__ == "__main__":
     model = ParametricSurvival(
         distribution=Distributions.WeibullDistribution(),
         batch_size=2048,
-        num_epochs=10,
+        num_epochs=20,
         k=80,
         learning_rate=1e-3,
         lambda_linear=0.0,
-        lambda_factorized=0.0
+        lambda_factorized=0.0,
+        importance_failure_rate_optimize=0.1,
+        importance_optimal_reserve_optimize=5.0
     )
 
     print('Start training...')
