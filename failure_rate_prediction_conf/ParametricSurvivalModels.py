@@ -1,11 +1,12 @@
-import numpy as np, pickle, csv
-
+import sys
+from time import time as nowtime
 import tensorflow as tf
+import numpy as np, pickle, csv
 from sklearn.metrics import log_loss, accuracy_score
+
 from failure_rate_prediction_conf.DataReader import SurvivalData
 from failure_rate_prediction_conf import Distributions
 from failure_rate_prediction_conf.EvaluationMetrics import c_index
-from time import time as nowtime
 
 
 ONLY_FREQ_TRAIN = False
@@ -168,16 +169,20 @@ class ParametricSurvival:
         optimal_reserve_prices_raw = self.initialize_optimal_reserve()
         optimal_reserve_prices_positive = tf.square(optimal_reserve_prices_raw)
         lower_bound_expected_revenue = self.compute_lower_bound_expected_revenue(optimal_reserve_prices_positive, scales, max_hbs, shape)
+        lower_bound_expected_revenue = tf.where(tf.is_nan(lower_bound_expected_revenue),
+                                                tf.zeros(tf.shape(lower_bound_expected_revenue)),
+                                                lower_bound_expected_revenue)
         expected_revenue_mean_loss = -1 * tf.reduce_mean(lower_bound_expected_revenue)
 
 
         ''' =============== Optimize Lower Bound Expected Revenue ============== '''
         expected_revenue_optimizer = tf.train.AdamOptimizer(
-            learning_rate=self.learning_rate
+            learning_rate=1
         ).minimize(
             loss=expected_revenue_mean_loss,
             var_list=[optimal_reserve_prices_raw]
         )
+
 
         ''' =============== Calculate the Loss of Wrong-Side Optimal Revenue =============== '''
         optimal_reserve_loss = self.compute_optimal_reserve_error(optimal_reserve_prices_positive,
@@ -194,15 +199,24 @@ class ParametricSurvival:
                      self.importance_failure_rate_optimize * failure_rate_loss + \
                      self.importance_optimal_reserve_optimize * optimal_reserve_loss
 
-        # training_op = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(combined_loss_mean)
+        combined_training_optimizer = tf.train.AdamOptimizer(
+            learning_rate=self.learning_rate
+        ).minimize(
+            loss=combined_mean_loss,
+            var_list=[embeddings_linear,
+                      embeddings_factorized,
+                      fm_intercept,
+                      shape]
+        )
+
         ### gradient clipping
-        combined_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-        gradients, variables = zip(*combined_optimizer.compute_gradients(combined_mean_loss,
-                                                                         var_list=[embeddings_linear,
-                                                                                   embeddings_factorized,
-                                                                                   fm_intercept, shape]))
-        gradients_clipped, _ = tf.clip_by_global_norm(gradients, 5.0)
-        combined_training_optimizer = combined_optimizer.apply_gradients(zip(gradients_clipped, variables))
+        # combined_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+        # gradients, variables = zip(*combined_optimizer.compute_gradients(combined_mean_loss,
+        #                                                                  var_list=[embeddings_linear,
+        #                                                                            embeddings_factorized,
+        #                                                                            fm_intercept, shape]))
+        # gradients_clipped, _ = tf.clip_by_global_norm(gradients, 100)
+        # combined_training_optimizer = combined_optimizer.apply_gradients(zip(gradients_clipped, variables))
 
 
         # Isolate the variables stored behind the scenes by the metric operation
@@ -233,26 +247,40 @@ class ParametricSurvival:
 
                     num_batch += 1
 
-                    _, batch_expected_revenue_mean_loss, batch_optimal_reserve_prices1, batch_lower_bound_expected_revenue = \
-                        sess.run([expected_revenue_optimizer,
-                                  expected_revenue_mean_loss,
-                                  optimal_reserve_prices_positive,
-                                  lower_bound_expected_revenue
-                                  ],
-                                 feed_dict={
-                                     'feature_indice:0': featidx_batch,
-                                     'feature_values:0': featval_batch,
-                                     'min_headerbids:0': minhbs_batch,
-                                     'max_headerbids:0': maxhbs_batch,
-                                     'times:0': time_batch,
-                                     'events:0': event_batch})
+                    prev_batch_expected_revenue_mean_loss = None
+                    while True:
+                        _, batch_expected_revenue_mean_loss, batch_optimal_reserve_prices = \
+                            sess.run([expected_revenue_optimizer,
+                                      expected_revenue_mean_loss,
+                                      optimal_reserve_prices_positive
+                                      ],
+                                     feed_dict={
+                                         'feature_indice:0': featidx_batch,
+                                         'feature_values:0': featval_batch,
+                                         'min_headerbids:0': minhbs_batch,
+                                         'max_headerbids:0': maxhbs_batch,
+                                         'times:0': time_batch,
+                                         'events:0': event_batch})
+
+                        print('\tbatch_expected_revenue_mean_loss = %.4f, optimal_reserve_prices = %s' %
+                              (batch_expected_revenue_mean_loss, batch_optimal_reserve_prices))
+                        if (prev_batch_expected_revenue_mean_loss != None and
+                                (batch_expected_revenue_mean_loss - prev_batch_expected_revenue_mean_loss) / prev_batch_expected_revenue_mean_loss < 0.01):
+                            break
+                        prev_batch_expected_revenue_mean_loss = batch_expected_revenue_mean_loss
 
 
-                    _, combined_loss_batch, batch_hist_failure_proba, batch_optimal_reserve_prices2 = sess.run([
+
+                    _, combined_loss_batch, batch_hist_failure_proba, batch_lower_bound_expected_revenue, batch_failure_rate_loss, batch_opt_reserve_loss, batch_scales, batch_embed_linear, batch_embed_factorized = sess.run([
                         combined_training_optimizer,
                         combined_mean_loss,
                         hist_failure_proba,
-                        optimal_reserve_prices_positive
+                        lower_bound_expected_revenue,
+                        failure_rate_loss,
+                        optimal_reserve_loss,
+                        scales,
+                        filtered_embeddings_linear,
+                        filtered_embeddings_factorized
                     ],
                                                       feed_dict={
                                                           'feature_indice:0': featidx_batch,
@@ -263,28 +291,21 @@ class ParametricSurvival:
                                                           'events:0': event_batch})
 
                     print()
-                    # print('optimal_reserve_prices')
-                    # print(batch_optimal_reserve_prices)
-                    # print('lower_bound_expected_revenue')
-                    # print(batch_lower_bound_expected_revenue)
-                    # print('hist_failure_proba')
-                    # print(batch_hist_failure_proba)
-                    # print('scales')
-                    # print(batch_scales)
-                    # print('mean_batch_loss_batch')
-                    # print(mean_batch_loss_batch)
-                    # print("event_batch")
-                    # print(event_batch)
-                    # print('shape_batch')
-                    # print(shape_batch)
+                    print('batch_embed_linear', np.isnan(batch_embed_linear).any())
+                    print('batch_embed_factorized', np.isnan(batch_embed_factorized).any())
+                    print('scales:', np.isnan(batch_scales).any())
+                    print('hist_failure_proba:', np.isnan(batch_hist_failure_proba).any())
+                    print('failure_rate_loss:', np.isnan(batch_failure_rate_loss).any())
+                    print('optimal_reserve_loss:', np.isnan(batch_opt_reserve_loss).any())
 
                     if epoch == 1:
                         print("Epoch %d - Batch %d/%d: combined batch loss = %.4f" %
                               (epoch, num_batch, num_total_batches, combined_loss_batch))
-                        print("                         expected revenue = %.4f" % batch_expected_revenue_mean_loss)
+                        print("                         expected revenue = %.4f" % batch_lower_bound_expected_revenue)
                         print("                         time: %.4fs" % (nowtime() - start))
                         start = nowtime()
 
+                    print('*********************************\n\n')
 
                 # evaluation on training data
                 eval_nodes_update = [failure_rate_loss_update, failure_rate_acc_update, hist_failure_proba, scales, max_hbs]
@@ -392,7 +413,7 @@ if __name__ == "__main__":
         batch_size=2048,
         num_epochs=20,
         k=80,
-        learning_rate=1e-3,
+        learning_rate=1e-6,
         lambda_linear=0.0,
         lambda_factorized=0.0,
         importance_failure_rate_optimize=0.1,
