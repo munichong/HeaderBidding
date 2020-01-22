@@ -99,18 +99,26 @@ class ParametricSurvival:
         return tf.zeros(tf.shape(larger_reserves))
 
     def compute_optimal_reserve_error(self, opt_reserves, hist_reserves, was_failed):
+        # If the historical reserve price is predicted to be failed,
+        # the optimal reserve should not be higher than the historical one
         loss1 = tf.where(tf.logical_and(tf.equal(was_failed, 1),
                                         tf.greater_equal(opt_reserves, hist_reserves)),
                         self.wrong_side_large_penalty(opt_reserves, hist_reserves),
                         tf.zeros(tf.shape(was_failed)))
+        # If the historical reserve price is predicted to be failed,
+        # the optimal reserve price should not be largely less than the historical one
         loss2 = tf.where(tf.logical_and(tf.equal(was_failed, 1),
                                         tf.less(opt_reserves, hist_reserves)),
                         self.right_side_small_penalty(hist_reserves, opt_reserves),
                         tf.zeros(tf.shape(was_failed)))
+        # If the historical reserve price is predicted to be outbid,
+        # the optimal should not be less than than the historical one
         loss3 = tf.where(tf.logical_and(tf.equal(was_failed, 0),
                                         tf.less_equal(opt_reserves, hist_reserves)),
                         self.wrong_side_large_penalty(hist_reserves, opt_reserves),
                         tf.zeros(tf.shape(was_failed)))
+        # If the historical reserve price is predicted to be outbid,
+        # the optimal should not be largely higher than than the historical one
         loss4 = tf.where(tf.logical_and(tf.equal(was_failed, 0),
                                         tf.greater(opt_reserves, hist_reserves)),
                          self.right_side_small_penalty(opt_reserves, hist_reserves),
