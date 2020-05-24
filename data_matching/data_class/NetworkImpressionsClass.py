@@ -1,13 +1,14 @@
 import logging
+
 import pandas as pd
 
 from data_matching.data_class.DFPDataClass import DFPData
-
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 hb_orderIds_path = '../header bidder.xlsx'
+
 
 class NetworkImpressions(DFPData):
     def __init__(self, file_content):
@@ -46,7 +47,6 @@ class NetworkImpressions(DFPData):
         self.df['TimeUsec'] = pd.Series(map(self.get_utc, self.df['TimeUsec']), index=self.df.index)  # UTC
         self.df['Time'] = pd.Series(map(self.get_est, self.df['Time']), index=self.df.index)  # EST
 
-
         self.df['PageID'] = pd.Series(map(self.get_pageid_from_CT, self.df['CustomTargeting']), index=self.df.index)
         self.df['PageNo'] = pd.Series(map(self.get_pageno_from_CT, self.df['CustomTargeting']), index=self.df.index)
         self.df['AdPosition'] = pd.Series(map(self.get_pos_from_CT, self.df['CustomTargeting']), index=self.df.index)
@@ -68,17 +68,17 @@ class NetworkImpressions(DFPData):
 
         logging.info("The shape of NetworkImpressions log after filtering by URLs: (%d, %d)" % self.df.shape)
 
-
     def filter_headerbidding_rows(self):
         orderId_df = pd.ExcelFile(hb_orderIds_path).parse(0)
         headerbiddingIds = set(orderId_df[orderId_df.iloc[:, 3].map(lambda row: row == 'bidder')].iloc[:, 2].values)
         self.df = self.df[self.df['OrderId'].map(lambda row: row in headerbiddingIds)]
 
 
-
 if __name__ == '__main__':
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-    df = pd.read_csv('M:/Research Datasets/Header Bidding Data/NetworkBackfillImpressions/2018.01.03/NetworkImpressions_330022_20180103_00', header=0, delimiter=',')
+    df = pd.read_csv(
+        'M:/Research Datasets/Header Bidding Data/NetworkBackfillImpressions/2018.01.03/NetworkImpressions_330022_20180103_00',
+        header=0, delimiter=',')
     testfile = NetworkImpressions(df)
     testfile.preprocess()

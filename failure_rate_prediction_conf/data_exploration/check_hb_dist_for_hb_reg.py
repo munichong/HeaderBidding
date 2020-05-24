@@ -1,12 +1,14 @@
 import pickle
+
+import matplotlib.pyplot as plt
 from sklearn.utils import shuffle
 from survival_analysis.DataReader import SurvivalData
-import matplotlib.pyplot as plt
 
 X_floor_adxwon, Y_maxhd_adxwon = [], []
 X_floor_adxlose, Y_minhd_adxlose = [], []
 n = 0
-for times, events, _, _, min_hbs, max_hbs, _ in SurvivalData(*pickle.load(open('../TRAIN_SET.p', 'rb'))).make_sparse_batch(100):
+for times, events, _, _, min_hbs, max_hbs, _ in SurvivalData(
+        *pickle.load(open('../TRAIN_SET.p', 'rb'))).make_sparse_batch(100):
     times, events, min_hbs, max_hbs = shuffle(times, events, min_hbs, max_hbs)
     for t, e, minhb, maxhb in zip(times, events, min_hbs, max_hbs):
         if n > 10000:

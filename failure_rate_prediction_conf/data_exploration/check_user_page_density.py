@@ -1,4 +1,5 @@
 import pickle
+
 from pymongo import MongoClient
 
 USER_MAX_BIN = 200
@@ -8,8 +9,8 @@ client = MongoClient()
 n_total_imps = client['Header_Bidding']['NetworkImpressions'].find().count() + \
                client['Header_Bidding']['NetworkBackfillImpressions'].find().count()
 
-
-counter = pickle.load(open("../output/counter.dict", "rb"))  # {Attribute1:Counter<features>, Attribute2:Counter<features>, ...}
+counter = pickle.load(
+    open("../output/counter.dict", "rb"))  # {Attribute1:Counter<features>, Attribute2:Counter<features>, ...}
 
 user_counter = counter['UserId']
 page_counter = counter['NaturalIDs']

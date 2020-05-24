@@ -1,10 +1,14 @@
-import os, re, csv, pickle
-from scipy import sparse
-from pprint import pprint
-from scipy.sparse import coo_matrix
-from failure_rate_prediction_journal.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS, MIN_OCCURRENCE
+import csv
+import os
+import pickle
+import re
 from collections import defaultdict, Counter
+from pprint import pprint
 
+from scipy import sparse
+from scipy.sparse import coo_matrix
+
+from failure_rate_prediction_journal.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS, MIN_OCCURRENCE
 
 PARTITION_DIR = '../output/missing_headerbids_data_partitions'
 VECTOR_DIR = '../output/vectorization'
@@ -29,7 +33,6 @@ class Vectorizer:
                     else:
                         self.counter[k][k] += 1  # for float or int features, occupy only one column
 
-
     def build_attr2idx(self):
         print('Building attr2idx')
         self.attr2idx = defaultdict(dict)  # {Attribute1: dict(feat1:i, ...), Attribute2: dict(feat1:i, ...), ...}
@@ -43,7 +46,6 @@ class Vectorizer:
                 self.attr2idx[attr][feat] = self.num_features
                 self.num_features += 1
         print('Finish building attr2idx')
-
 
     def transform_one_impression(self, imp_entry, agent_index):
         ''' Get prediction target '''
@@ -72,15 +74,14 @@ class Vectorizer:
         return header_bids, feature_matrix
 
 
-
 def output_one_agent_vector_files(vectorizer, output_dir, imp_files_path, agent_name):
     for dataset_type in ('train', 'val', 'test'):
         with open(os.path.join(output_dir,
                                '%s_featvec_%s.csv' % (agent_name, dataset_type)
                                ), 'a', newline='\n') as outfile_feat, \
                 open(os.path.join(output_dir,
-                               '%s_headerbids_%s.csv' % (agent_name, dataset_type)
-                               ), 'a', newline='\n') as outfile_hb:
+                                  '%s_headerbids_%s.csv' % (agent_name, dataset_type)
+                                  ), 'a', newline='\n') as outfile_hb:
             writer_feat = csv.writer(outfile_feat, delimiter=',')
             writer_feat.writerow([vectorizer.num_features])  # the number of features
             writer_hb = csv.writer(outfile_hb, delimiter=',')
@@ -103,7 +104,6 @@ def build_vectors_across_all_agents():
     print("\nAttr2Idx:")
     pprint(vectorizer.attr2idx)
     print("\n%d features\n" % vectorizer.num_features)
-
 
     ' delete old files '
     for file in os.listdir(VECTOR_DIR):
@@ -139,6 +139,7 @@ def featstr_to_sparsemat(dir_path):
         sparse.save_npz(os.path.join(dir_path, filename[:-len('.csv')] + '.csr'),
                         coo_matrix((values_fv, (row_indices_fv, col_indices_fv)),
                                    shape=(num_rows, num_features)).tocsr())
+
 
 if __name__ == "__main__":
     build_vectors_across_all_agents()

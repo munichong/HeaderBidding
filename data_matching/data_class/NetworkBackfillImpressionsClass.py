@@ -1,12 +1,13 @@
 import logging
+
 import pandas as pd
 
-from util.parameters import HEADER_BIDDING_KEYS
 from data_matching.data_class.DFPDataClass import DFPData
-
+from util.parameters import HEADER_BIDDING_KEYS
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
 
 # HEADER_BIDDING_KEYS = ('mnetbidprice',
 #                        'mnet_abd',
@@ -19,7 +20,6 @@ logger.setLevel(logging.INFO)
 class NetworkBackfillImpressions(DFPData):
     def __init__(self, file_content):
         super().__init__(file_content)
-
 
     def remove_columns(self):
         '''
@@ -49,7 +49,6 @@ class NetworkBackfillImpressions(DFPData):
                                         'VideoFallbackPosition', 'YieldGroupNames', 'YieldGroupCompanyId',
                                         'DealId', 'DealType', 'Anonymous'])
 
-
     def preprocess(self):
         logging.info("The shape of original NetworkBackfillImpressions log: (%d, %d)" % self.df.shape)
         self.remove_columns()
@@ -65,10 +64,8 @@ class NetworkBackfillImpressions(DFPData):
         # print(self.df)
         self.filter_customtargeting_rows()
 
-
         self.df['TimeUsec'] = pd.Series(map(self.get_utc, self.df['TimeUsec']), index=self.df.index)  # UTC
         self.df['Time'] = pd.Series(map(self.get_est, self.df['Time']), index=self.df.index)  # EST
-
 
         self.df['PageID'] = pd.Series(map(self.get_pageid_from_CT, self.df['CustomTargeting']), index=self.df.index)
         self.df['PageNo'] = pd.Series(map(self.get_pageno_from_CT, self.df['CustomTargeting']), index=self.df.index)
@@ -79,7 +76,6 @@ class NetworkBackfillImpressions(DFPData):
         logging.info("The shape of NetworkBackfillImpressions log after filtering some rows: (%d, %d)" % self.df.shape)
 
         # logger.debug(self.df.sort_values(by=['TimeUsec']))
-
 
         unique_ids = self.df['PageID'].unique()
 
@@ -98,7 +94,6 @@ class NetworkBackfillImpressions(DFPData):
 
         logging.info("The shape of NetworkBackfillImpressions log after filtering by URLs: (%d, %d)" % self.df.shape)
 
-
     def get_header_bids(self, customtargeting):
         return {key: customtargeting[key] for key in HEADER_BIDDING_KEYS if key in customtargeting}
 
@@ -109,9 +104,12 @@ class NetworkBackfillImpressions(DFPData):
         '''
         self.df = self.df[self.df['Product'] != 'Exchange Bidding']
 
+
 if __name__ == '__main__':
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
-    df = pd.read_csv('M:/Research Datasets/Header Bidding Data/NetworkBackfillImpressions/2018.01.03/NetworkBackfillImpressions_330022_20180103_00', header=0, delimiter='^')
+    df = pd.read_csv(
+        'M:/Research Datasets/Header Bidding Data/NetworkBackfillImpressions/2018.01.03/NetworkBackfillImpressions_330022_20180103_00',
+        header=0, delimiter='^')
     testfile = NetworkBackfillImpressions(df)
     testfile.preprocess()

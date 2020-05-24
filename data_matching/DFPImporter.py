@@ -1,11 +1,10 @@
-import os, sys
+import os
+import sys
+
 import pandas as pd
-from datetime import datetime
-from pymongo import MongoClient, ASCENDING, DESCENDING, HASHED
 from NetworkBackfillImpressionsClass import NetworkBackfillImpressions
 from NetworkImpressionsClass import NetworkImpressions
-
-
+from pymongo import MongoClient, ASCENDING
 
 root = 'M:/Research Datasets/Header Bidding Data/'
 client = MongoClient()
@@ -14,10 +13,10 @@ client = MongoClient()
 def import_dataset(dataname, ImpressionClass):
     col = client['Header_Bidding'][dataname]
     col.create_index([('URIs_pageno', ASCENDING),
-                    ('Time', ASCENDING),
-                    ('AdPosition', ASCENDING),
-                    ('Country', ASCENDING),
-                    ('Region', ASCENDING)])
+                      ('Time', ASCENDING),
+                      ('AdPosition', ASCENDING),
+                      ('Country', ASCENDING),
+                      ('Region', ASCENDING)])
 
     start_process = False
 
@@ -47,7 +46,6 @@ def import_dataset(dataname, ImpressionClass):
             col.insert_many(imp_inst.df.to_dict('r'))
 
             print(len(imp_inst.df), "STORED!")
-
 
         sys.exit(0)
 

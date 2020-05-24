@@ -1,11 +1,11 @@
-import pickle, matplotlib
-from matplotlib import pyplot
-from matplotlib.ticker import FuncFormatter
-from pprint import pprint
+import pickle
 from collections import Counter
-from survival_analysis.DataReader import SurvivalData
+from pprint import pprint
+
+from matplotlib import pyplot
 
 time_train, event_train, features_train = pickle.load(open('../Vectors_train.p', 'rb'))
+
 
 def floor_distribution():
     time_counter = Counter()
@@ -16,6 +16,7 @@ def floor_distribution():
     for time, count in sorted(time_counter.items()):
         print(time, '-->', count)
 
+
 def plot_event_vs_floor():
     floor0 = []
     floor1 = []
@@ -25,12 +26,13 @@ def plot_event_vs_floor():
         else:
             floor1.append(t)
 
-    pyplot.hist([floor0, floor1], color=['g','r'], bins=3000, label=['adx-won', 'adx-lose'])
+    pyplot.hist([floor0, floor1], color=['g', 'r'], bins=3000, label=['adx-won', 'adx-lose'])
     # pyplot.hist(labels1, bins, alpha=0.5, label='adx-lose')
     pyplot.legend(loc='upper right')
     pyplot.xlim(0, 10)
     pyplot.xticks([n / 10 for n in range(0, 100, 5)])
     pyplot.show()
+
 
 def event_vs_floor():
     time_counter0 = Counter()
@@ -59,5 +61,6 @@ def event_vs_floor():
         print(time, '-->', count)
     print("......")
 
-if  __name__ == '__main__':
+
+if __name__ == '__main__':
     plot_event_vs_floor()

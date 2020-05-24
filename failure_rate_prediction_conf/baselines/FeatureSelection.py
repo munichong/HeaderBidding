@@ -1,15 +1,19 @@
-import pickle, numpy as np, math
-from pprint import pprint
+import math
+import pickle
+
 from sklearn.feature_selection import chi2
-from failure_rate_prediction_conf.DataReader import SurvivalData
 from tabulate import tabulate
+
+from failure_rate_prediction_conf.DataReader import SurvivalData
 
 TRAIN_FILE_PATH = '../output/Vectors_train.p'
 VAL_FILE_PATH = '../output/Vectors_val.p'
 TEST_FILE_PATH = '../output/Vectors_test.p'
 
+
 def _read_data(file_path):
     return pickle.load(open(file_path, 'rb'))
+
 
 def chi2_feature_selection(X, y):
     chi, pval = chi2(X, y)
@@ -28,10 +32,9 @@ def chi2_feature_selection(X, y):
         if not math.isnan(chi):
             output.append((field, feat, index, counter[field][feat], chi, p))
 
-    print(tabulate(sorted(output, key=lambda x : x[-2], reverse=True),
-                    headers=['Field', 'Feature', 'Index', 'Count', 'Chi2', 'P-value'],
-                    tablefmt='orgtbl'))
-
+    print(tabulate(sorted(output, key=lambda x: x[-2], reverse=True),
+                   headers=['Field', 'Feature', 'Index', 'Count', 'Chi2', 'P-value'],
+                   tablefmt='orgtbl'))
 
 
 if __name__ == '__main__':

@@ -1,8 +1,10 @@
-import numpy as np, pandas as pd
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import log_loss, roc_auc_score, accuracy_score
+import numpy as np
 from lifelines import KaplanMeierFitter
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import log_loss, accuracy_score
+
 from failure_rate_prediction_conf.EvaluationMetrics import c_index
+
 
 class UnivariateLogisticRegression:
 
@@ -21,7 +23,7 @@ class UnivariateLogisticRegression:
     def evaluate(self, X, y_bin_true, sample_weights=None):
         # print(np.array(X).shape, np.array(y_bin_true).shape)
         # print(self.lr.classes_)
-        y_proba_pred = self.predict_proba(X)[:,1]
+        y_proba_pred = self.predict_proba(X)[:, 1]
         # print(y_proba_pred)
         y_bin_pred = self.predict(X)
         # print(y_bin_pred)
@@ -44,11 +46,11 @@ class KaplanMeier:
         return self.kmf.cumulative_density_.loc[np.squeeze(X), 'KM_estimate']
 
     def predict(self, X):
-        return np.where(self.predict_proba(X)>=0.5, 1.0, 0.0)
+        return np.where(self.predict_proba(X) >= 0.5, 1.0, 0.0)
 
     def evaluate(self, X, y_bin_true, sample_weights=None):
         y_proba_pred = self.predict_proba(X)
-        y_bin_pred = np.where(y_proba_pred>=0.5, 1.0, 0.0)
+        y_bin_pred = np.where(y_proba_pred >= 0.5, 1.0, 0.0)
 
         # return log_loss(y_bin_true, y_proba_pred, sample_weight=sample_weights), \
         #        0.0, \
@@ -57,8 +59,3 @@ class KaplanMeier:
         return log_loss(y_bin_true, y_proba_pred, sample_weight=sample_weights), \
                c_index(y_bin_true, y_proba_pred, np.squeeze(X)), \
                accuracy_score(y_bin_true, y_bin_pred, sample_weight=sample_weights)
-
-
-
-
-

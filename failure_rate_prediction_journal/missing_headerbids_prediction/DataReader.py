@@ -1,13 +1,15 @@
 import os
-import numpy as np
-from scipy import sparse
-from keras.preprocessing.sequence import pad_sequences
 from collections import Counter
+
+import numpy as np
+from keras.preprocessing.sequence import pad_sequences
+from scipy import sparse
 from sklearn.utils import shuffle
+
 from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
 
-
 HB_OUTLIER_THLD = 5.0
+
 
 class HeaderBiddingData:
 
@@ -22,8 +24,8 @@ class HeaderBiddingData:
     def num_features(self):
         return self.sparse_features.shape[1]
 
-    def add_data(self, headerbids : np.array,
-                 sparse_features : sparse.csr.csr_matrix):
+    def add_data(self, headerbids: np.array,
+                 sparse_features: sparse.csr.csr_matrix):
         self.headerbids.extend(headerbids)
 
         if self.sparse_features is None:
@@ -65,6 +67,7 @@ def _load_sparsefeatures_file(dir_path, hb_agent_name, data_type):
                                         '%s_featvec_%s.csr.npz' %
                                         (hb_agent_name, data_type)))
 
+
 def _load_headerbids_file(dir_path, hb_agent_name, data_type):
     return list(
         map(
@@ -76,12 +79,14 @@ def _load_headerbids_file(dir_path, hb_agent_name, data_type):
         )
     )
 
+
 def _filter_outliers(headerbids, sparse_features):
     headerbids = np.array(headerbids)
     mask = headerbids < HB_OUTLIER_THLD
     headerbids = headerbids[mask]
     sparse_features = sparse_features[mask, :]
     return headerbids, sparse_features
+
 
 def load_hb_data_one_agent(dir_path, hb_agent_name, data_type):
     sparse_features = _load_sparsefeatures_file(dir_path, hb_agent_name, data_type)
@@ -90,13 +95,14 @@ def load_hb_data_one_agent(dir_path, hb_agent_name, data_type):
     assert sparse_features.shape[0] == len(headerbids)
 
     print("\tORIGINAL: %d *%s* instances and %d features" % (sparse_features.shape[0],
-                                                                        data_type,
-                                                                        sparse_features.shape[1]))
+                                                             data_type,
+                                                             sparse_features.shape[1]))
     headerbids, sparse_features = _filter_outliers(headerbids, sparse_features)
     print("\tAFTER FILTERING OUTLIERS: %d *%s* instances and %d features" % (sparse_features.shape[0],
-                                                                        data_type,
-                                                                        sparse_features.shape[1]))
+                                                                             data_type,
+                                                                             sparse_features.shape[1]))
     return headerbids, sparse_features
+
 
 def load_hb_data_all_agents(dir_path, hb_agent_name, data_type):
     headerbids, sparse_features = load_hb_data_one_agent(dir_path, hb_agent_name, data_type)
@@ -109,11 +115,10 @@ def load_hb_data_all_agents(dir_path, hb_agent_name, data_type):
          sparse_features)
     )
     print("\tAFTER ADDING AGENT: %d *%s* instances and %d features" % (sparse_features.shape[0],
-                                                                      data_type,
-                                                                      sparse_features.shape[1]))
+                                                                       data_type,
+                                                                       sparse_features.shape[1]))
 
     return headerbids, sparse_features
-
 
 
 if __name__ == "__main__":

@@ -1,19 +1,21 @@
-import pickle, numpy as np
+import numpy as np
+import pickle
 
 from failure_rate_prediction_conf.DataReader import SurvivalData
-from failure_rate_prediction_conf.baselines.BaselineUnivariateModels import UnivariateLogisticRegression, KaplanMeier
 from failure_rate_prediction_conf.baselines.BaselineMultivariateModels import MultivariateSGDLogisticRegression
-
 
 TRAIN_FILE_PATH = '../output/TRAIN_SET.p'
 VAL_FILE_PATH = '../output/VAL_SET.p'
 TEST_FILE_PATH = '../output/TEST_SET.p'
 
+
 def _read_data(file_path):
     return pickle.load(open(file_path, 'rb'))
 
+
 def _expand_dims(data, axis=1):
     return np.expand_dims(data, axis=axis)
+
 
 def run_univariate_baselines(Baseline):
     baseline = Baseline()
@@ -34,9 +36,7 @@ def run_univariate_baselines(Baseline):
           baseline.evaluate(times_test, np.array(events_test), sample_weights=np.squeeze(times_test)))
 
 
-
 def run_multivariate_baselines(Baseline, sample_weights=None):
-
     baseline = Baseline()
     training_data = SurvivalData(*_read_data(TRAIN_FILE_PATH))
     baseline.partial_fit(training_data)
@@ -52,8 +52,6 @@ def run_multivariate_baselines(Baseline, sample_weights=None):
     test_data = SurvivalData(*_read_data(TEST_FILE_PATH))
     print("Test Performance:\tlogloss=%.6f, c-index=%.6f, accuracy=%.6f" %
           baseline.evaluate(test_data, sample_weights=sample_weights))
-
-
 
 
 if __name__ == '__main__':

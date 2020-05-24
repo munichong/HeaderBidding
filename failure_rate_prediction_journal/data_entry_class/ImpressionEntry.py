@@ -1,5 +1,5 @@
-import csv, pandas as pd
-
+import csv
+import pandas as pd
 
 EMPTY = '<EMPTY>'
 MIN_OCCURRENCE = 5
@@ -7,18 +7,18 @@ MIN_OCCURRENCE = 5
 
 AMZBID_MAPPING_PATH = '..\..\PricePoints-3038-display.csv'
 HEADER_BIDDING_KEYS = ('mnetbidprice',
-                        'mnet_abd',
-                        'mnet_fbcpm',
-                        'amznbid',
-                        'crt_pb',
-                        # 'fb_bid_price_cents'
+                       'mnet_abd',
+                       'mnet_fbcpm',
+                       'amznbid',
+                       'crt_pb',
+                       # 'fb_bid_price_cents'
                        )
+
 
 class ImpressionEntry:
     def __init__(self, doc):
         self.doc = doc
         self.load_amznbid_price_mapping()
-
 
     def build_entry(self):
         self.entry = {}
@@ -47,7 +47,6 @@ class ImpressionEntry:
 
         for k, v in self.parse_customtargeting(self.doc['CustomTargeting']).items():
             self.entry[k] = v
-
 
     def parse_customtargeting(self, ct):
         feat = {}
@@ -90,7 +89,8 @@ class ImpressionEntry:
 
     def has_headerbidding(self):
         ct = self.doc['CustomTargeting']
-        if any(hb in ct for hb in HEADER_BIDDING_KEYS if hb != 'amznbid') or ('amznbid' in ct and ct['amznbid'] in self.amzbid_mapping):
+        if any(hb in ct for hb in HEADER_BIDDING_KEYS if hb != 'amznbid') or (
+                'amznbid' in ct and ct['amznbid'] in self.amzbid_mapping):
             return True
         return False
 

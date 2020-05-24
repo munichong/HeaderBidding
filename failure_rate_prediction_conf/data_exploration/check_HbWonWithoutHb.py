@@ -1,12 +1,11 @@
 from pymongo import MongoClient
 
-
 HEADER_BIDDING_KEYS = ('mnetbidprice',
-                        'mnet_abd',
-                        'mnet_fbcpm',
-                        'amznbid',
-                        'crt_pb',
-                        'fb_bid_price_cents')
+                       'mnet_abd',
+                       'mnet_fbcpm',
+                       'amznbid',
+                       'crt_pb',
+                       'fb_bid_price_cents')
 
 client = MongoClient()
 col = client['Header_Bidding']['NetworkImpressions']
@@ -21,4 +20,3 @@ for doc in col.find():
     print(doc)
 
 print(n_without_hd, n_total_hdwon, n_without_hd / n_total_hdwon)
-

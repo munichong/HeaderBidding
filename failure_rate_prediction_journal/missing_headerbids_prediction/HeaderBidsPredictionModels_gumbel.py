@@ -1,14 +1,14 @@
 import os
-import csv
-import pickle
+from time import time as nowtime
+
 import numpy as np
 import pandas as pd
-
 import tensorflow as tf
-from time import time as nowtime
 from sklearn.metrics import mean_squared_error
-from failure_rate_prediction_journal.missing_headerbids_prediction.DataReader import HeaderBiddingData, load_hb_data_all_agents, load_hb_data_one_agent
+
 from failure_rate_prediction_journal.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
+from failure_rate_prediction_journal.missing_headerbids_prediction.DataReader import HeaderBiddingData, \
+    load_hb_data_all_agents, load_hb_data_one_agent
 
 MODE = 'one_agent'
 INPUT_DIR = '../output'
@@ -33,11 +33,11 @@ class HBPredictionModel:
         return tf.reduce_sum(weights_linear, axis=-1) + intercept
 
     def factorization_machines(self, weights_factorized):
-        dot_product_res = tf.matmul(weights_factorized, tf.transpose(weights_factorized, perm=[0,2,1]))
+        dot_product_res = tf.matmul(weights_factorized, tf.transpose(weights_factorized, perm=[0, 2, 1]))
         element_product_res = weights_factorized * weights_factorized
         pairs_mulsum = tf.reduce_sum(tf.multiply(0.5, tf.reduce_sum(dot_product_res, axis=2)
-                                        - tf.reduce_sum(element_product_res, axis=2)),
-                            axis=-1)
+                                                 - tf.reduce_sum(element_product_res, axis=2)),
+                                     axis=-1)
         return pairs_mulsum
 
     def gumbelPDF(self, x, mu, scale):
@@ -71,9 +71,10 @@ class HBPredictionModel:
         filtered_embeddings_factorized = None
         if self.k > 0:
             # shape: (batch_size, max_nonzero_len, k)
-            embeddings_factorized = tf.Variable(tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=1e-5))
+            embeddings_factorized = tf.Variable(
+                tf.truncated_normal(shape=(num_features, self.k), mean=0.0, stddev=1e-5))
             filtered_embeddings_factorized = tf.nn.embedding_lookup(embeddings_factorized, feature_indice) * \
-                                      tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
+                                             tf.tile(tf.expand_dims(feature_values, axis=-1), [1, 1, 1])
             factorized_term = self.factorization_machines(filtered_embeddings_factorized)
             location += factorized_term
 
@@ -83,13 +84,12 @@ class HBPredictionModel:
         neg_log_likelihood = tf.reduce_sum(log_prob)
 
         header_bids_pred = location \
-                           # + positive_scale * tf.constant(0.5772)
+            # + positive_scale * tf.constant(0.5772)
 
         batch_loss = tf.losses.mean_squared_error(labels=header_bids_true,
-                                                      predictions=header_bids_pred,
-                                                      reduction = tf.losses.Reduction.MEAN)
+                                                  predictions=header_bids_pred,
+                                                  reduction=tf.losses.Reduction.MEAN)
         running_loss, loss_update = tf.metrics.mean(batch_loss)
-
 
         # L2 regularized sum of squares loss function over the embeddings
         l2_norm = self.lambda_linear * tf.nn.l2_loss(filtered_embeddings_linear)
@@ -106,14 +106,12 @@ class HBPredictionModel:
         # gradients_clipped, _ = tf.clip_by_global_norm(gradients, 5.0)
         # training_op = optimizer.apply_gradients(zip(gradients_clipped, variables))
 
-
         # Isolate the variables stored behind the scenes by the metric operation
         running_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES)
         # Define initializer to initialize/reset running variables
         running_vars_initializer = tf.variables_initializer(var_list=running_vars)
 
         init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
-
 
         with tf.Session() as sess:
             init.run()
@@ -134,11 +132,11 @@ class HBPredictionModel:
                     # print(featval_batch)
 
                     _, loss_batch, hb_pred, hb_true, pos_scale = sess.run([training_op, loss_mean, header_bids_pred,
-                                                                header_bids_true, positive_scale],
-                                             feed_dict={
-                                             'feature_indice:0': featidx_batch,
-                                             'feature_values:0': featval_batch,
-                                             'header_bids:0': hb_batch})
+                                                                           header_bids_true, positive_scale],
+                                                                          feed_dict={
+                                                                              'feature_indice:0': featidx_batch,
+                                                                              'feature_values:0': featval_batch,
+                                                                              'header_bids:0': hb_batch})
 
                     # print(pos_scale)
                     # print(hb_pred)
@@ -156,17 +154,17 @@ class HBPredictionModel:
                 print("========== Evaluation at Epoch %d ==========" % epoch)
                 print('*** On Training Set:')
                 [loss_train], _, _ = self.evaluate(train_data.make_sparse_batch(),
-                                                                 running_vars_initializer, sess,
-                                                                 eval_nodes_update, eval_nodes_metric,
-                                                                 )
+                                                   running_vars_initializer, sess,
+                                                   eval_nodes_update, eval_nodes_metric,
+                                                   )
                 print("TENSORFLOW:\tMSE = %.6f" % loss_train)
 
                 # evaluation on validation data
                 print('*** On Validation Set:')
                 [loss_val], hb_pred_val, hb_true_val = self.evaluate(val_data.make_sparse_batch(),
-                                                           running_vars_initializer, sess,
-                                                           eval_nodes_update, eval_nodes_metric,
-                                                           )
+                                                                     running_vars_initializer, sess,
+                                                                     eval_nodes_update, eval_nodes_metric,
+                                                                     )
                 print("TENSORFLOW:\tMSE = %.6f" % loss_val)
 
                 # print(loss_val, max_loss_val)
@@ -194,17 +192,16 @@ class HBPredictionModel:
                     if current_bad_epochs == bad_epoch_tol:
                         break
 
-
     def evaluate(self, next_batch, running_init, sess, updates, metrics):
         all_hb_pred = []
         all_hb_true = []
         total_nlog_like = 0
         sess.run(running_init)
         for hb_batch, featidx_batch, featval_batch in next_batch:
-            _, nlog_like, hb_pred  = sess.run(updates, feed_dict={
-                                             'feature_indice:0': featidx_batch,
-                                             'feature_values:0': featval_batch,
-                                             'header_bids:0': hb_batch})
+            _, nlog_like, hb_pred = sess.run(updates, feed_dict={
+                'feature_indice:0': featidx_batch,
+                'feature_values:0': featval_batch,
+                'header_bids:0': hb_batch})
             all_hb_pred.extend(hb_pred)
             all_hb_true.extend(hb_batch)
             total_nlog_like += nlog_like
@@ -219,7 +216,6 @@ class HBPredictionModel:
         return sess.run(metrics), all_hb_pred, all_hb_true
 
 
-
 if __name__ == "__main__":
     if MODE == 'all_agents':
         hb_data_train = HeaderBiddingData()
@@ -230,7 +226,6 @@ if __name__ == "__main__":
             hb_data_train.add_data(*load_hb_data_all_agents(VECTORS_DIR, hb_agent_name, 'train'))
             hb_data_val.add_data(*load_hb_data_all_agents(VECTORS_DIR, hb_agent_name, 'val'))
             hb_data_test.add_data(*load_hb_data_all_agents(VECTORS_DIR, hb_agent_name, 'test'))
-
 
         print('Building model...')
         model = HBPredictionModel(batch_size=512,
@@ -253,7 +248,6 @@ if __name__ == "__main__":
             hb_data_train = HeaderBiddingData()
             hb_data_val = HeaderBiddingData()
             hb_data_test = HeaderBiddingData()
-
 
             hb_data_train.add_data(*load_hb_data_one_agent(VECTORS_DIR, hb_agent_name, 'train'))
             hb_data_val.add_data(*load_hb_data_one_agent(VECTORS_DIR, hb_agent_name, 'val'))
@@ -284,5 +278,3 @@ if __name__ == "__main__":
 
         print("\n###### FINAL EVALUATION RESULT ######")
         print("SKLEARN:\tMSE = %.6f" % (mean_squared_error(y_true, y_pred)))
-
-

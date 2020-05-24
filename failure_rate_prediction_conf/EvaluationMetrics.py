@@ -1,8 +1,10 @@
 import bisect
+
 import pandas as pd
 
+
 def c_index(events, y_pred, times):
-    df = pd.DataFrame(data={'proba':y_pred, 'event':events, 'time':times})
+    df = pd.DataFrame(data={'proba': y_pred, 'event': events, 'time': times})
     df = df.sort_values(by=['time']).reset_index(drop=True)
     earlier_event1_probas = []
     n_total_correct = 0

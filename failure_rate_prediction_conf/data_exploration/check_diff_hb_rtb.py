@@ -1,4 +1,6 @@
-import pickle, numpy as np
+import numpy as np
+import pickle
+
 from survival_analysis.DataReader import SurvivalData
 
 n_hb_overestimate = 0
@@ -16,7 +18,8 @@ n_maxhb_g_t = 0
 n_minhb_l_t = 0
 n_medianhb_l_t = 0
 n_meanhb_l_t = 0
-for times, events, _, _, min_hbs, max_hbs, hbs,  _ in SurvivalData(*pickle.load(open('../TRAIN_SET.p', 'rb'))).make_sparse_batch(100000):
+for times, events, _, _, min_hbs, max_hbs, hbs, _ in SurvivalData(
+        *pickle.load(open('../TRAIN_SET.p', 'rb'))).make_sparse_batch(100000):
     for t, e, minhb, maxhb, hb in zip(times, events, min_hbs, max_hbs, hbs):
         if maxhb == 0 or minhb == 0:
             continue
@@ -78,7 +81,11 @@ print(n_hb_adxlose / n_event1 * 100, "percent")  # the higher the better
 # print()
 # print(n_event1_maxhb_l_t)
 
-print("When event is 0, %.4f%% min hb > floor, %.4f%% mean hb > floor, %.4f%% median hb > floor, %.4f%% max hb > floor" %
-      (n_minhb_g_t / n_event0 * 100, n_meanhb_g_t / n_event0 * 100, n_medianhb_g_t / n_event0 * 100, n_maxhb_g_t / n_event0 * 100))
-print("When event is 1, %.4f%% min hb < floor, %.4f%% mean hb < floor, %.4f%% median hb < floor, %.4f%% max hb < floor" %
-      (n_minhb_l_t / n_event1 * 100, n_meanhb_l_t / n_event1 * 100, n_medianhb_l_t / n_event1 * 100, n_maxhb_l_t / n_event1 * 100))
+print(
+    "When event is 0, %.4f%% min hb > floor, %.4f%% mean hb > floor, %.4f%% median hb > floor, %.4f%% max hb > floor" %
+    (n_minhb_g_t / n_event0 * 100, n_meanhb_g_t / n_event0 * 100, n_medianhb_g_t / n_event0 * 100,
+     n_maxhb_g_t / n_event0 * 100))
+print(
+    "When event is 1, %.4f%% min hb < floor, %.4f%% mean hb < floor, %.4f%% median hb < floor, %.4f%% max hb < floor" %
+    (n_minhb_l_t / n_event1 * 100, n_meanhb_l_t / n_event1 * 100, n_medianhb_l_t / n_event1 * 100,
+     n_maxhb_l_t / n_event1 * 100))

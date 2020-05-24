@@ -1,11 +1,15 @@
-import os, csv, pickle
-from pymongo import MongoClient
+import csv
+import os
+import pickle
+from collections import defaultdict, Counter
 from pprint import pprint
+
+from pymongo import MongoClient
+
+from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS, MIN_OCCURRENCE, \
+    MIN_OCCURRENCE_SYMBOL
 from failure_rate_prediction_conf.data_entry_class.NetworkBackfillImpressionEntry import NetworkBackfillImpressionEntry
 from failure_rate_prediction_conf.data_entry_class.NetworkImpressionEntry import NetworkImpressionEntry
-from failure_rate_prediction_conf.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS, MIN_OCCURRENCE, MIN_OCCURRENCE_SYMBOL
-from collections import defaultdict, Counter
-
 
 FEATURE_FIELDS = ['URIs_pageno', 'NaturalIDs', 'RefererURL', 'UserId',
                   'DeviceCategory', 'MobileDevice', 'Browser', 'BandWidth', 'OS', 'MobileCarrier',
@@ -14,6 +18,7 @@ FEATURE_FIELDS = ['URIs_pageno', 'NaturalIDs', 'RefererURL', 'UserId',
                   'RequestLanguage', 'Country', 'Region', 'Metro', 'City',
                   'RequestedAdUnitSizes', 'AdPosition',
                   'CustomTargeting', ]
+
 
 class Vectorizer:
     def __init__(self):
@@ -55,7 +60,6 @@ class Vectorizer:
                 else:
                     self.counter[k][k] += 1  # for float or int features, occupy only one column
 
-
     def build_attr2idx(self):
         self.attr2idx = defaultdict(dict)  # {Attribute1: dict(feat1:i, ...), Attribute2: dict(feat1:i, ...), ...}
         self.num_features = 0
@@ -82,7 +86,6 @@ class Vectorizer:
         header_bids = imp_entry.to_sparse_headerbids()
         # return target + imp_entry.to_full_feature_vector(self.num_features, self.attr2idx)
         return target + imp_entry.to_sparse_feature_vector(self.attr2idx, self.counter), header_bids
-
 
     def transform(self, dbname, colname, ImpressionEntry):
         self.col = self.client[dbname][colname]
@@ -113,12 +116,12 @@ def output_vector_files(featfile_path, hbfile_path, colname, ImpressionEntry):
     with open(featfile_path, 'a', newline='\n') as outfile_feat, open(hbfile_path, 'a', newline='\n') as outfile_hb:
         writer_feat = csv.writer(outfile_feat, delimiter=',')
         writer_hb = csv.writer(outfile_hb, delimiter=',')
-        writer_feat.writerow([vectorizer.num_features])  # the number of features WITH header bidding BUT WITHOUT 'duration', 'event', and header bids
+        writer_feat.writerow([
+                                 vectorizer.num_features])  # the number of features WITH header bidding BUT WITHOUT 'duration', 'event', and header bids
         writer_hb.writerow([len(HEADER_BIDDING_KEYS)])
         for mat, hbs in vectorizer.transform('Header_Bidding', colname, ImpressionEntry):
             writer_feat.writerows(mat)
             writer_hb.writerows(hbs)
-
 
 
 if __name__ == "__main__":

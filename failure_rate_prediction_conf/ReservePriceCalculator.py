@@ -1,15 +1,17 @@
 import os
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 from scipy.optimize import minimize
 
 root = 'I:/Desktop'
 infile = os.path.join(root, 'all_predictions_factorized_shapetrain.csv')
 outfile = os.path.join(root, 'all_predictions_factorized_shapetrain_predicted.csv')
 
+
 class ExpectedRevenueMaximum:
     def neg_expected_revenue(self, x, row):
-        not_surv_prob = 1 - np.exp(-1* row['SCALE'] * x ** row['SHAPE'])
+        not_surv_prob = 1 - np.exp(-1 * row['SCALE'] * x ** row['SHAPE'])
         return -((1 - not_surv_prob) * x + not_surv_prob * row['MAX_HB'])
 
     def predict(self, row):
@@ -32,7 +34,6 @@ class ExpectedRevenueMaximum:
 
 
 class SpecifyConfidence:
-
     CONFIDENCE = 0.3  # target survive prob
 
     def predict(self, row):
@@ -60,7 +61,7 @@ class SpecifyConfidence:
 
 
 def evaluate(predfile):
-    num_fail_good_lower, num_fail_higher, num_fail_too_lower= 0, 0, 0
+    num_fail_good_lower, num_fail_higher, num_fail_too_lower = 0, 0, 0
     num_surv_good_higher, num_surv_lower, num_surv_too_higher = 0, 0, 0
     total_fail_pred = 0
     total_surv_pred = 0
@@ -101,8 +102,6 @@ def evaluate(predfile):
     print()
 
 
-
 if __name__ == '__main__':
     ExpectedRevenueMaximum().run(infile, outfile)
     evaluate(outfile)
-

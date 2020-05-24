@@ -1,5 +1,5 @@
-import csv, pandas as pd
-
+import csv
+import pandas as pd
 
 EMPTY = '<EMPTY>'
 MIN_OCCURRENCE = 5
@@ -7,17 +7,17 @@ MIN_OCCURRENCE_SYMBOL = '<RARE>'
 
 AMZBID_MAPPING_PATH = '..\PricePoints-3038-display.csv'
 HEADER_BIDDING_KEYS = ('mnetbidprice',
-                        'mnet_abd',
-                        'mnet_fbcpm',
-                        'amznbid',
-                        'crt_pb',
-                        'fb_bid_price_cents')
+                       'mnet_abd',
+                       'mnet_fbcpm',
+                       'amznbid',
+                       'crt_pb',
+                       'fb_bid_price_cents')
+
 
 class ImpressionEntry:
     def __init__(self, doc):
         self.doc = doc
         self.load_amznbid_price_mapping()
-
 
     def build_entry(self):
         self.entry = {}
@@ -46,7 +46,6 @@ class ImpressionEntry:
 
         for k, v in self.parse_customtargeting(self.doc['CustomTargeting']).items():
             self.entry[k] = v
-
 
     def parse_customtargeting(self, ct):
         feat = {}
@@ -89,7 +88,8 @@ class ImpressionEntry:
 
     def has_headerbidding(self):
         ct = self.doc['CustomTargeting']
-        if any(hb in ct for hb in HEADER_BIDDING_KEYS if hb != 'amznbid') or ('amznbid' in ct and ct['amznbid'] in self.amzbid_mapping):
+        if any(hb in ct for hb in HEADER_BIDDING_KEYS if hb != 'amznbid') or (
+                'amznbid' in ct and ct['amznbid'] in self.amzbid_mapping):
             return True
         return False
 
@@ -121,13 +121,15 @@ class ImpressionEntry:
         for attr, feats in self.entry.items():
             if type(feats) == list:
                 for f in feats:
-                    if f not in attr2idx[attr]:  # if the feature is the one that is skipped (for avoiding dummy variable trap)
+                    if f not in attr2idx[
+                        attr]:  # if the feature is the one that is skipped (for avoiding dummy variable trap)
                         continue
                     vector.append(':'.join(map(str, [attr2idx[attr][f], 1.0 / len(feats)])))
             elif type(feats) == str:
                 if counter[attr][feats] < MIN_OCCURRENCE:
                     vector.append(':'.join(map(str, [attr2idx[attr][MIN_OCCURRENCE_SYMBOL], 1])))
-                elif feats in attr2idx[attr]:  # if the feature is NOT the one that is skipped (for avoiding dummy variable trap)
+                elif feats in attr2idx[
+                    attr]:  # if the feature is NOT the one that is skipped (for avoiding dummy variable trap)
                     vector.append(':'.join(map(str, [attr2idx[attr][feats], 1])))
             else:
                 vector.append(':'.join(map(str, [attr2idx[attr][attr], feats])))

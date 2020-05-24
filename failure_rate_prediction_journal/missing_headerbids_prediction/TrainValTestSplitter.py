@@ -2,11 +2,12 @@
 1. Given all impressions in MongoDB, filter the impressions whose at least one header bids are known.
 2. Split them into training, validation, and test datasets.
 """
-import pickle
 import os
+import pickle
 from random import shuffle
-from failure_rate_prediction_journal.data_entry_class.ImpressionEntryGenerator import imp_entry_gen
+
 from failure_rate_prediction_journal.data_entry_class.ImpressionEntry import HEADER_BIDDING_KEYS
+from failure_rate_prediction_journal.data_entry_class.ImpressionEntryGenerator import imp_entry_gen
 
 BUFFER_QUEUE_SIZE = 80000
 
@@ -41,17 +42,15 @@ for imp_entry in imp_entry_gen():
 
             train_len = int(TRAIN_PCT * len(hb_known_impressions[i]))
             val_len = int(VAL_PCT * len(hb_known_impressions[i]))
-            pickle.dump(hb_known_impressions[i][ : train_len],
+            pickle.dump(hb_known_impressions[i][: train_len],
                         open(os.path.join(ROOT, outfilename + '_train.p'),
                              'wb'))
-            pickle.dump(hb_known_impressions[i][train_len : train_len + val_len],
+            pickle.dump(hb_known_impressions[i][train_len: train_len + val_len],
                         open(os.path.join(ROOT, outfilename + '_val.p'),
                              'wb'))
-            pickle.dump(hb_known_impressions[i][train_len + val_len : ],
+            pickle.dump(hb_known_impressions[i][train_len + val_len:],
                         open(os.path.join(ROOT, outfilename + '_test.p'),
                              'wb'))
             print('Files has been generated for %s.' % outfilename)
             hb_known_impressions[i].clear()
             hb_known_file_index[i] += 1
-
-

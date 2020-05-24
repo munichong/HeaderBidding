@@ -1,7 +1,8 @@
 from pymongo import MongoClient
-from failure_rate_prediction_journal.data_entry_class.NetworkBackfillImpressionEntry import NetworkBackfillImpressionEntry
-from failure_rate_prediction_journal.data_entry_class.NetworkImpressionEntry import NetworkImpressionEntry
 
+from failure_rate_prediction_journal.data_entry_class.NetworkBackfillImpressionEntry import \
+    NetworkBackfillImpressionEntry
+from failure_rate_prediction_journal.data_entry_class.NetworkImpressionEntry import NetworkImpressionEntry
 
 client = MongoClient()
 
@@ -13,8 +14,8 @@ FEATURE_FIELDS = ['URIs_pageno', 'NaturalIDs', 'RefererURL', 'UserId',
                   'RequestedAdUnitSizes', 'AdPosition',
                   'CustomTargeting', ]
 
-def imp_entry_gen():
 
+def imp_entry_gen():
     DBNAME = 'Header_Bidding'
     for COLNAME, ImpressionEntry in [('NetworkBackfillImpressions', NetworkBackfillImpressionEntry),
                                      ('NetworkImpressions', NetworkImpressionEntry)]:
@@ -23,7 +24,7 @@ def imp_entry_gen():
         n = 0
         for doc in col.find(projection=FEATURE_FIELDS, no_cursor_timeout=True):
             if n % 100000 == 0:
-                print('%d/%d (%.2f%%)' % (n, total_entries, n/total_entries*100))
+                print('%d/%d (%.2f%%)' % (n, total_entries, n / total_entries * 100))
             n += 1
 
             imp_entry = ImpressionEntry(doc)
@@ -33,4 +34,3 @@ def imp_entry_gen():
                 continue
 
             yield imp_entry
-

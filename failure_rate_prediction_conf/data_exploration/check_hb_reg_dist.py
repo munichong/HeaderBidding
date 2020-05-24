@@ -1,15 +1,15 @@
 import pickle
+
+import matplotlib.pyplot as plt
 from sklearn.utils import shuffle
 from survival_analysis.DataReader import SurvivalData
-from collections import Counter
-import matplotlib.pyplot as plt
-
 
 times_adxwon_1en2, maxhbs_adxwon_1en2 = [], []
 times_adxwon_1en3, maxhbs_adxwon_1en3 = [], []
 times_adxwon_1en4, maxhbs_adxwon_1en4 = [], []
 n = 0
-for times, events, _, _, min_hbs, max_hbs, _ in SurvivalData(*pickle.load(open('../TRAIN_SET.p', 'rb'))).make_sparse_batch(100):
+for times, events, _, _, min_hbs, max_hbs, _ in SurvivalData(
+        *pickle.load(open('../TRAIN_SET.p', 'rb'))).make_sparse_batch(100):
     times, events, min_hbs, max_hbs = shuffle(times, events, min_hbs, max_hbs)
     for t, e, minhb, maxhb in zip(times, events, min_hbs, max_hbs):
         if n % 1000000 == 0:
@@ -30,7 +30,6 @@ for times, events, _, _, min_hbs, max_hbs, _ in SurvivalData(*pickle.load(open('
         if t < maxhb and maxhb != 0.0 and (maxhb - t) / t < 0.0001:
             times_adxwon_1en4.append(t)
             maxhbs_adxwon_1en4.append(maxhb)
-
 
 plt.hist([times_adxwon_1en2, times_adxwon_1en3, times_adxwon_1en4], bins=3000, color=['yellow', 'red', 'blue'])
 plt.xlim(0, 20)
